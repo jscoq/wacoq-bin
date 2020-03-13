@@ -1,0 +1,58 @@
+import { ExecCore, ExecCoreOptions } from 'wasi-kernel/src/kernel/exec';
+
+
+interface OCamlCAPI {
+    malloc(sz: i32): i32;
+    free(p: i32): void;
+    caml_alloc_string(len: i32): i32;
+    caml_named_value(name: i32): i32;
+    caml_callback(closure: i32, arg: i32): i32;
+}
+
+type i32 = number;
+
+
+class OCamlExecutable extends ExecCore {
+
+    api: OCamlCAPI
+
+    constructor(opts: ExecCoreOptions) {
+        super(opts);
+    }
+
+    async run(bytecodeFile: string) {
+        for (let p of preload)
+            await this.proc.dyld.preload(p.name, p.uri, p.reloc);
+
+        await this.start('/bin/ocaml/ocamlrun.wasm', ['ocamlrun', bytecodeFile]);
+
+        this.api = <any>this.wasm.instance.exports as OCamlCAPI;
+    }
+
+    to_caml_string(s: string) {
+        var bytes = new TextEncoder().encode(s),
+            a = this.api.caml_alloc_string(bytes.length);
+        this.proc.membuf.set(bytes, a);
+        return a;
+    }
+
+}
+
+
+var preload = ['dllcamlstr', 'dllunix', 'dllthreads', 'dllnums'].map(b => ({
+    name: `${b}.so`, uri: `/bin/ocaml/${b}.wasm`,
+    reloc: {data: ['caml_atom_table'], func: [
+        'caml_alloc', 'caml_alloc_small', 'caml_alloc_custom',
+        'caml_copy_nativeint', 'caml_copy_string', 'caml_register_custom_operations',
+        'memset', 'memmove', 'caml_hash_mix_uint32', 'caml_serialize_int_4',
+        'caml_serialize_block_4', 'caml_deserialize_uint_4', 'caml_deserialize_block_4',
+        'caml_invalid_argument', 'caml_named_value', 'caml_raise', 'snprintf'
+    ]}
+})).concat(['dllbyterun_stubs'].map(b => ({
+    name: `${b}.so`, uri: `/bin/coq/${b}.wasm`,
+    reloc: {data: ['caml_atom_table'], func: ['caml_copy_double']}
+})));
+
+
+
+export { OCamlExecutable, OCamlCAPI }

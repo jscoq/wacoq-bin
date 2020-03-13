@@ -1,0 +1,10 @@
+(env
+ (release (flags :standard -rectypes) (ocamlc_flags ))
+ (dev     (flags :standard -rectypes)))
+
+(dirs ("src" vendor))
+
+(alias
+ (name coq)
+ (deps
+   (package coq)))

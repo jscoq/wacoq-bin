@@ -1,0 +1,12 @@
+#console #prompt {
+    font-family: monospace;
+    width: 100%;
+    outline: none;
+}
+
+#console div {
+    font-family: monospace;
+    white-space: pre;
+    margin-bottom: .5em;
+    background: #eee;
+}

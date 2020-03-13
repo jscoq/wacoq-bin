@@ -1,0 +1,12 @@
+.*.swp
+.cache
+_build
+node_modules
+.merlin
+/vendor
+/bin
+/dist
+/public
+
+/npm-link
+.now

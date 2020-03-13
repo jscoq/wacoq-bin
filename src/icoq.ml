@@ -1,0 +1,228 @@
+
+let make_coqpath ?(implicit=true) unix_path lib_path =
+  Loadpath.{
+    path_spec = VoPath {
+        unix_path = unix_path;
+        coq_path = Names.(DirPath.make @@ List.rev_map Id.of_string lib_path);
+        has_ml = AddRecML;
+        implicit = implicit
+      };
+    recursive = true;
+  }
+
+let default_load_path = [make_coqpath "/lib/plugins" ["Coq"];
+                         make_coqpath "/lib/theories" ["Coq"]]
+
+let init () =
+  (* Coqinit.set_debug (); *)
+
+  Lib.init();
+  Global.set_engagement Declarations.PredicativeSet;
+  Global.set_VM false;
+  Global.set_native_compiler false;
+
+  Stm.init_core ();
+
+  (* Create an initial state of the STM *)
+  let sertop_dp = Stm.TopLogical (Libnames.dirpath_of_string "Lab") in
+  let ndoc = { Stm.doc_type = Stm.Interactive sertop_dp;
+               require_libs = ["Coq.Init.Prelude", None, Some true];
+               iload_path = default_load_path;
+               stm_options = Stm.AsyncOpts.default_opts } in
+  let ndoc, nsid = Stm.new_doc ndoc in
+
+  print_endline @@ "Stm sid=" ^ Stateid.to_string nsid;
+
+  ndoc, nsid 
+
+let next sid = Stateid.of_int @@ Stateid.to_int sid + 1
+
+
+(*
+ * Main Coq interaction entry point
+ *)
+module Interpreter = struct
+
+  let state : (Stm.doc * Stateid.t list) option ref = ref None
+
+  let error : Stateid.t option ref = ref None
+
+  let _fresh_cnt = ref 1
+
+  let here () =
+    let (doc, states) = Option.get !state in (doc, List.hd states)
+
+  let tip () = let (_, tip) = here () in tip
+
+  let push doc sid =
+    let (_, states) = Option.get !state in
+    state := Some (doc, sid :: states)
+
+  let back doc sid =
+    let (_, states) = Option.get !state in
+    let rec drop_until p = function
+      | [] -> []
+      | x :: xs -> if p x then x :: xs else drop_until p xs
+    in
+    state := Some (doc, drop_until (fun x -> x = sid) states)
+
+  let prev sid =
+    let (_, states) = Option.get !state in
+    let rec find = function
+      | [] -> Stateid.initial
+      | x :: xs -> if x = sid then List.hd xs else find xs
+    in
+    find states
+
+  let fresh () =
+    let n = !_fresh_cnt + 1 in
+    _fresh_cnt := n ; Stateid.of_int n
+
+  let parse stm =
+    let doc, ontop = here () in
+    let pa = Pcoq.Parsable.make (Stream.of_string stm) in
+    let entry = Pvernac.main_entry in
+    Option.get @@ Stm.parse_sentence ~doc ~entry ontop pa
+
+  let add_ast ?newid ast =
+    let doc, ontop = here () in
+    let newtip = match newid with | Some n -> n | _ -> fresh () in
+    let doc, new_sid, _ = Stm.add ~doc ~ontop ~newtip true ast in
+    push doc new_sid;
+    print_endline @@ "Add sid=" ^ Stateid.to_string new_sid;
+    new_sid
+
+  let add ?newid stm =
+    add_ast ?newid (parse stm)
+
+  let observe ~sid =
+    let doc, states = Option.get !state in
+    state := Some (Stm.observe ~doc sid, states);
+    sid
+
+  let cancel ~sid =
+    let (doc, _) = Option.get !state in
+    let doc, _ = Stm.edit_at ~doc (prev sid) in
+    let new_tip = Stm.get_current_state ~doc in
+    print_endline @@ "Cancel " ^ Stateid.to_string sid;
+    back doc new_tip;
+    new_tip
+    
+  let add_observe ?newid stm =
+    observe ~sid:(add ?newid stm)
+
+  let get_goal_type (sigma : Evd.evar_map) (g : Goal.goal) =
+    EConstr.to_constr sigma (Goal.V82.concl sigma g)
+
+  let string_of_goal (sigma : Evd.evar_map) (g : Goal.goal) =
+    let env       = Goal.V82.env sigma g                                      in
+    Pp.string_of_ppcmds @@ 
+    Printer.pr_ltype_env env sigma (get_goal_type sigma g)
+
+  let get_goals ~sid =
+    let doc, _ = here () in
+    match Stm.state_of_id ~doc sid with
+    | `Valid (Some { Vernacstate.lemmas = Some lemmas ; _ } ) ->
+      let proof = Vernacstate.LemmaStack.with_top_pstate lemmas
+          ~f:(fun pstate -> Proof_global.get_proof pstate) in  
+      [Pp.string_of_ppcmds @@ Printer.pr_open_subgoals ~proof]
+    | _ -> []
+
+  let refresh_load_path () =
+    List.iter Loadpath.add_coq_path default_load_path
+
+  let fb_queue : Feedback.feedback list ref = ref []
+
+  let fb_handler (feedback : Feedback.feedback) =
+    fb_queue := feedback :: !fb_queue ;
+    match feedback.contents with
+      Message(l, _, msg) -> 
+        print_endline @@ "-------\n" ^ Pp.string_of_ppcmds msg ;
+        if l = Error then ( print_endline @@ "ERROR " ^ Stateid.to_string feedback.span_id ; error := Some feedback.span_id )
+    | _ -> ()
+
+  let fb_flush () = let fb = !fb_queue in fb_queue := []; fb
+
+  let cleanup () =
+    match !error with
+    | Some sid -> error := None ; ignore @@ cancel ~sid
+    | _ -> ()
+
+  let init () = 
+    ignore @@ Feedback.add_feeder fb_handler;
+    let doc, initial = init () in
+    state := Some (doc, [initial])
+
+end
+
+
+module Stateid = struct
+  let to_string = Stateid.to_string
+  type t = [%import: Stateid.t]
+  let to_yojson sid = `Int (Stateid.to_int sid)
+  let of_yojson j = match j with
+    | `Int n -> Result.Ok (Stateid.of_int n)
+    | _ -> Result.Error "expected number"
+end
+
+
+(*module Stateid  = Serlib.Ser_stateid*)
+
+
+type jscoq_cmd =
+  | Init
+  | Add of string
+  | Cancel of Stateid.t
+  | Goals of Stateid.t
+  | RefreshLoadPath
+  [@@deriving yojson]
+
+type jscoq_answer =
+  | Ready of Stateid.t
+  | Added of Stateid.t * int option
+  | BackTo of Stateid.t
+  | GoalInfo of string list
+  | Feedback of string option
+  | JsonExn of string
+  | CoqExn of string
+  [@@deriving to_yojson]
+
+let jscoq_execute = function
+  | Init ->             [Ready (Interpreter.tip ())]
+  | Add stm ->          [Added (Interpreter.add_observe stm, None)]
+  | Cancel sid ->       [BackTo (Interpreter.cancel ~sid)]
+  | Goals sid ->        [GoalInfo (Interpreter.get_goals ~sid)]
+  | RefreshLoadPath ->  Interpreter.refresh_load_path () ; []
+
+let fb_flush () =
+  let to_msg (fb : Feedback.feedback) = match fb.contents with
+    | Message(_, _, msg) -> 
+        Feedback (Some (Pp.string_of_ppcmds msg))
+    | _ -> Feedback None
+  in
+  List.rev_map to_msg @@ Interpreter.fb_flush ()
+
+let handleRequest json_str =
+  let resp =
+  try
+    let json = Yojson.Safe.from_string json_str        in
+    let cmd = jscoq_cmd_of_yojson json                 in
+    match cmd with
+      | Result.Error e -> [JsonExn e]
+      | Result.Ok cmd -> jscoq_execute cmd
+  with exn ->
+    let (e, info) = CErrors.push exn                   in
+    [CoqExn (Pp.string_of_ppcmds @@ CErrors.iprint (e, info))]
+  in
+  let fb_and_resp = fb_flush () @ resp in
+  Interpreter.cleanup () ;
+  Yojson.Safe.to_string @@ `List (List.map jscoq_answer_to_yojson fb_and_resp)
+
+let _ =
+  try
+    Interpreter.init () ;
+    ignore @@ Interpreter.add_observe "Check nat.";
+    ignore @@ Interpreter.add_observe "Check True.";
+    Callback.register "post" handleRequest
+  with CErrors.UserError(Some x, y) ->
+    print_endline @@ "error! " ^ x ^ ": " ^ Pp.string_of_ppcmds y

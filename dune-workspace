@@ -1,0 +1,7 @@
+(lang dune 2.1)
+
+(profile release)
+
+(context
+ (opam (switch jscoq+64bit)
+  (merlin)))
