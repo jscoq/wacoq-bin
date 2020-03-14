@@ -1,0 +1,26 @@
+synopsis:     "Coq for WebAssembly"
+description:  ""
+name:         "wacoq"
+opam-version: "2.0"
+maintainer:   "corwin.amber@gmail.com"
+authors:      "Shachar Itzhaky"
+homepage:     "https://github.com/corwin-of-amber/coq-wasm"
+bug-reports:  "https://github.com/corwin-of-amber/coq-wasm"
+dev-repo:     "git+https://github.com/corwin-of-amber/coq-wasm.git"
+license:      "AGPL 3"
+
+depends: [
+  "ocaml"               { >= "4.08.1"           }
+  "dune"                { >= "2.4.0"            }
+  "yojson"              { >= "1.7.0"            }
+  "ppx_deriving_yojson" { >= "3.5.1"            }
+  "ppx_import"          { build & >= "1.6.2"    }
+  # We should just rely on OPAM's serlib but this is still early
+  "sexplib"             { >= "v0.12.0"           }
+  "ppx_sexp_conv"       { build   & >= "v0.12.0" }
+  # We build a local, patched Coq, but however it is still a dep
+  # "coq"                 { >= "8.11.0" & < "8.12" }
+  "num"
+]
+
+build: [ "dune" "build" "-p" name "-j" jobs ]
