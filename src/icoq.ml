@@ -1,3 +1,5 @@
+open Wacoq_proto.Proto
+
 
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{
@@ -125,7 +127,7 @@ module Interpreter = struct
     | `Valid (Some { Vernacstate.lemmas = Some lemmas ; _ } ) ->
       let proof = Vernacstate.LemmaStack.with_top_pstate lemmas
           ~f:(fun pstate -> Proof_global.get_proof pstate) in  
-      [Pp.string_of_ppcmds @@ Printer.pr_open_subgoals ~proof]
+      [Printer.pr_open_subgoals ~proof]
     | _ -> []
 
   let refresh_load_path () =
@@ -156,37 +158,6 @@ module Interpreter = struct
 end
 
 
-module Stateid = struct
-  let to_string = Stateid.to_string
-  type t = [%import: Stateid.t]
-  let to_yojson sid = `Int (Stateid.to_int sid)
-  let of_yojson j = match j with
-    | `Int n -> Result.Ok (Stateid.of_int n)
-    | _ -> Result.Error "expected number"
-end
-
-
-(*module Stateid  = Serlib.Ser_stateid*)
-
-
-type jscoq_cmd =
-  | Init
-  | Add of string
-  | Cancel of Stateid.t
-  | Goals of Stateid.t
-  | RefreshLoadPath
-  [@@deriving yojson]
-
-type jscoq_answer =
-  | Ready of Stateid.t
-  | Added of Stateid.t * int option
-  | BackTo of Stateid.t
-  | GoalInfo of string list
-  | Feedback of string option
-  | JsonExn of string
-  | CoqExn of string
-  [@@deriving to_yojson]
-
 let jscoq_execute = function
   | Init ->             [Ready (Interpreter.tip ())]
   | Add stm ->          [Added (Interpreter.add_observe stm, None)]
@@ -195,12 +166,7 @@ let jscoq_execute = function
   | RefreshLoadPath ->  Interpreter.refresh_load_path () ; []
 
 let fb_flush () =
-  let to_msg (fb : Feedback.feedback) = match fb.contents with
-    | Message(_, _, msg) -> 
-        Feedback (Some (Pp.string_of_ppcmds msg))
-    | _ -> Feedback None
-  in
-  List.rev_map to_msg @@ Interpreter.fb_flush ()
+  List.rev_map (fun fb -> Feedback fb) @@ Interpreter.fb_flush ()
 
 let handleRequest json_str =
   let resp =
@@ -212,7 +178,7 @@ let handleRequest json_str =
       | Result.Ok cmd -> jscoq_execute cmd
   with exn ->
     let (e, info) = CErrors.push exn                   in
-    [CoqExn (Pp.string_of_ppcmds @@ CErrors.iprint (e, info))]
+    [CoqExn (CErrors.iprint (e, info))]
   in
   let fb_and_resp = fb_flush () @ resp in
   Interpreter.cleanup () ;

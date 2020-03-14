@@ -1,15 +1,7 @@
 (executable
- (name filtering)
- (modes byte)
- (modules filtering)
- (preprocess (staged_pps ppx_import ppx_deriving_yojson))
- (flags :standard -w -39)
- (libraries yojson))
-
-(executable
  (name icoq)
  (modes byte)
- (modules icoq)
+ (modules icoq wacoq_proto)
  (preprocess (staged_pps ppx_import ppx_deriving_yojson))
- (libraries coq.stm coq.toplevel yojson)
- (link_flags -linkall -no-check-prims))
+ (libraries coq.stm coq.toplevel yojson coq-serapi.serlib)
+ (link_flags -linkall))

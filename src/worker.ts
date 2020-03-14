@@ -32,6 +32,8 @@ async function main() {
     if (devMode)
         await copy('/bin/icoq.bc', '/lib/icoq.bc');
 
+    postMessage(['Starting']);
+
     await core.run('/lib/icoq.bc');
 
     const api = core.api;
@@ -46,6 +48,7 @@ async function main() {
 
     addEventListener('message', (msg) => {
         console.log(msg);
+        if (!callbacks.post) return;
         var answer = api.caml_callback(callbacks.post, core.to_caml_string(msg.data));
         for (let msg of JSON.parse(<any>core.proc.userGetCString(answer)))
             postMessage(msg);

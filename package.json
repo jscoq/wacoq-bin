@@ -6,6 +6,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/jquery": "^3.3.33",
     "cssnano": "^4.1.10",
     "typescript": "^3.8.3"
   },
@@ -14,5 +15,8 @@
   ],
   "scripts": {
     "build": "true"
+  },
+  "dependencies": {
+    "jquery": "^3.4.1"
   }
 }
