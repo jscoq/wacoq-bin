@@ -3,10 +3,15 @@
 _build
 node_modules
 .merlin
-/vendor
+/vendor/coq
 /bin
 /dist
 /public
 
 /npm-link
-.now
+
+# local configuration for now.sh
+/.now
+/.nowignore
+/now.json
+/publish.sh

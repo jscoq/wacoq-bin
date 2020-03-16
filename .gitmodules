@@ -1,0 +1,3 @@
+[submodule "vendor/coq-serapi"]
+	path = vendor/coq-serapi
+	url = https://github.com/ejgallego/coq-serapi.git
