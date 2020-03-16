@@ -63,18 +63,18 @@ module Interpreter = struct
   let back doc sid =
     let (_, states) = Option.get !state in
     let rec drop_until p = function
-      | [] -> []
+      | [] -> raise Not_found
       | x :: xs -> if p x then x :: xs else drop_until p xs
     in
-    state := Some (doc, drop_until (fun x -> x = sid) states)
+    try
+      state := Some (doc, drop_until (fun x -> x = sid) states)
+    with Not_found ->
+      failwith @@ "(assertion failed) missing sid " ^ Stateid.to_string sid
 
   let prev sid =
     let (_, states) = Option.get !state in
-    let rec find = function
-      | [] -> Stateid.initial
-      | x :: xs -> if x = sid then List.hd xs else find xs
-    in
-    find states
+    List.find_opt (fun x -> Stateid.newer_than sid x) states
+      |> Option.default Stateid.initial
 
   let fresh () =
     let n = !_fresh_cnt + 1 in
@@ -153,14 +153,16 @@ module Interpreter = struct
   let init () = 
     ignore @@ Feedback.add_feeder fb_handler;
     let doc, initial = init () in
-    state := Some (doc, [initial])
+    state := Some (doc, [initial]);
+    initial
 
 end
 
 
 let jscoq_execute = function
   | Init ->             [Ready (Interpreter.tip ())]
-  | Add stm ->          [Added (Interpreter.add_observe stm, None)]
+  | Add stm ->          [Added (Interpreter.add stm, None)]
+  | Exec sid ->         ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->       [BackTo (Interpreter.cancel ~sid)]
   | Goals sid ->        [GoalInfo (Interpreter.get_goals ~sid)]
   | RefreshLoadPath ->  Interpreter.refresh_load_path () ; []
@@ -186,9 +188,7 @@ let handleRequest json_str =
 
 let _ =
   try
-    Interpreter.init () ;
-    ignore @@ Interpreter.add_observe "Check nat.";
-    ignore @@ Interpreter.add_observe "Check True.";
+    ignore @@ Interpreter.init () ;  (* must be called before '_' exits?.. *)
     Callback.register "post" handleRequest
   with CErrors.UserError(Some x, y) ->
     print_endline @@ "error! " ^ x ^ ": " ^ Pp.string_of_ppcmds y

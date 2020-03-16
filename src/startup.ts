@@ -1,10 +1,10 @@
-// parcel watch --hmr-hostname=localhost --public-url '.' src/index.html &
+// parcel watch --hmr-hostname=localhost --public-url '.' src/index.html src/worker.ts &
 
 import { InteractiveConsole } from './ui/console';
 
 
 function main() {
-    var worker = new Worker('./worker.ts');
+    var worker = new Worker(0 || './worker.js');  // bypass Parcel (fails to build worker at the moment)
 
 
     function sendCommand(cmd) {
@@ -22,9 +22,12 @@ function main() {
         case 'Boot':
             sendCommand(['Init']); break;
         case 'Ready':
-            consl.showProgress('Starting', true);  break;
+            consl.showProgress('Starting', true);
+            sendCommand(['Add', 'Check nat.']);
+            break;
         case 'Added':
-            sendCommand(["Goals", ev.data[1]]); break;
+            sendCommand(['Exec', ev.data[1]]);
+            sendCommand(['Goals', ev.data[1]]); break;
         case 'GoalInfo':
             for (let g of ev.data[1]) consl.write(g);  break;
         case 'CoqExn':

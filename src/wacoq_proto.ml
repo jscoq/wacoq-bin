@@ -9,6 +9,7 @@ module Proto = struct
 type jscoq_cmd =
   | Init
   | Add of string
+  | Exec of Stateid.t
   | Cancel of Stateid.t
   | Goals of Stateid.t
   | RefreshLoadPath
