@@ -3,5 +3,5 @@
  (modes byte)
  (modules icoq wacoq_proto)
  (preprocess (staged_pps ppx_import ppx_deriving_yojson))
- (libraries coq.stm coq.toplevel yojson coq-serapi.serlib)
+ (libraries coq.stm coq.toplevel yojson coq-serapi.serlib coq-serapi.serapi_v8_11)
  (link_flags -linkall))

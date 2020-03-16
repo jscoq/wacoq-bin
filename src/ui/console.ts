@@ -36,7 +36,14 @@ class InteractiveConsole extends EventEmitter {
             p.append(...this.pprint.pp2DOM(msg));
         p.insertBefore(this.prompt);
         return p;
-    }    
+    }
+
+    writeGoals(goals: any[]) {
+        var p = $('<div>');
+        p.append(this.pprint.goals2DOM(goals));
+        p.insertBefore(this.prompt);
+        return p;
+    }
 
     showProgress(desc: string, done: boolean, msg?: string) {
         if (done) {

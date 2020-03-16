@@ -81,21 +81,22 @@ module Interpreter = struct
     _fresh_cnt := n ; Stateid.of_int n
 
   let parse stm =
-    let doc, ontop = here () in
+    let doc, tip = here () in
     let pa = Pcoq.Parsable.make (Stream.of_string stm) in
     let entry = Pvernac.main_entry in
-    Option.get @@ Stm.parse_sentence ~doc ~entry ontop pa
+    Option.get @@ Stm.parse_sentence ~doc ~entry tip pa
 
-  let add_ast ?newid ast =
-    let doc, ontop = here () in
+  let add_ast ?from ?newid ast =
+    let doc, tip = here () in
+    let ontop = Option.default tip from in
     let newtip = match newid with | Some n -> n | _ -> fresh () in
     let doc, new_sid, _ = Stm.add ~doc ~ontop ~newtip true ast in
     push doc new_sid;
     print_endline @@ "Add sid=" ^ Stateid.to_string new_sid;
     new_sid
 
-  let add ?newid stm =
-    add_ast ?newid (parse stm)
+  let add ?from ?newid stm =
+    add_ast ?from ?newid (parse stm)
 
   let observe ~sid =
     let doc, states = Option.get !state in
@@ -113,22 +114,10 @@ module Interpreter = struct
   let add_observe ?newid stm =
     observe ~sid:(add ?newid stm)
 
-  let get_goal_type (sigma : Evd.evar_map) (g : Goal.goal) =
-    EConstr.to_constr sigma (Goal.V82.concl sigma g)
-
-  let string_of_goal (sigma : Evd.evar_map) (g : Goal.goal) =
-    let env       = Goal.V82.env sigma g                                      in
-    Pp.string_of_ppcmds @@ 
-    Printer.pr_ltype_env env sigma (get_goal_type sigma g)
-
   let get_goals ~sid =
     let doc, _ = here () in
-    match Stm.state_of_id ~doc sid with
-    | `Valid (Some { Vernacstate.lemmas = Some lemmas ; _ } ) ->
-      let proof = Vernacstate.LemmaStack.with_top_pstate lemmas
-          ~f:(fun pstate -> Proof_global.get_proof pstate) in  
-      [Printer.pr_open_subgoals ~proof]
-    | _ -> []
+    let ppx env sigma x = Printer.pr_ltype_env env sigma x in
+    Serapi.Serapi_goals.get_goals_gen ppx ~doc sid
 
   let refresh_load_path () =
     List.iter Loadpath.add_coq_path default_load_path
@@ -160,12 +149,14 @@ end
 
 
 let jscoq_execute = function
-  | Init ->             [Ready (Interpreter.tip ())]
-  | Add stm ->          [Added (Interpreter.add stm, None)]
-  | Exec sid ->         ignore @@ Interpreter.observe ~sid ; []
-  | Cancel sid ->       [BackTo (Interpreter.cancel ~sid)]
-  | Goals sid ->        [GoalInfo (Interpreter.get_goals ~sid)]
-  | RefreshLoadPath ->  Interpreter.refresh_load_path () ; []
+  | Init ->                    [Ready (Interpreter.tip ())]
+  | Add (from, newid, stm) ->  [Added (Interpreter.add ?from ?newid stm, None)]
+  | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
+  | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
+  | Goals sid ->               [GoalInfo (sid, Interpreter.get_goals ~sid)]
+  | Query (_, _, _) ->         [(* not implemented*)]
+  | Inspect (_, _, _) ->       [(* not implemented*)]
+  | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
 
 let fb_flush () =
   List.rev_map (fun fb -> Feedback fb) @@ Interpreter.fb_flush ()
@@ -174,17 +165,17 @@ let handleRequest json_str =
   let resp =
   try
     let json = Yojson.Safe.from_string json_str        in
-    let cmd = jscoq_cmd_of_yojson json                 in
+    let cmd = [%of_yojson: wacoq_cmd] json             in
     match cmd with
       | Result.Error e -> [JsonExn e]
       | Result.Ok cmd -> jscoq_execute cmd
   with exn ->
     let (e, info) = CErrors.push exn                   in
-    [CoqExn (CErrors.iprint (e, info))]
+    [CoqExn (Loc.get_loc info, Stateid.get info, CErrors.iprint (e, info))]
   in
   let fb_and_resp = fb_flush () @ resp in
   Interpreter.cleanup () ;
-  Yojson.Safe.to_string @@ `List (List.map jscoq_answer_to_yojson fb_and_resp)
+  Yojson.Safe.to_string @@ `List (List.map [%to_yojson: wacoq_answer] fb_and_resp)
 
 let _ =
   try

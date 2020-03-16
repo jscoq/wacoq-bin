@@ -4,6 +4,8 @@ import { InteractiveConsole } from './ui/console';
 
 
 function main() {
+    var startTime = +new Date();
+
     var worker = new Worker(0 || './worker.js');  // bypass Parcel (fails to build worker at the moment)
 
 
@@ -18,20 +20,23 @@ function main() {
 
         switch (ev.data[0]) {
         case 'Starting':
+            console.log(`%cStarting (+${+new Date() - startTime}ms)`, 'color: #99f');
             consl.showProgress('Starting', false);  break;
         case 'Boot':
+            console.log(`%cBoot (+${+new Date() - startTime}ms)`, 'color: #99f');
             sendCommand(['Init']); break;
         case 'Ready':
             consl.showProgress('Starting', true);
-            sendCommand(['Add', 'Check nat.']);
+            console.log(`%cReady (+${+new Date() - startTime}ms)`, 'color: #99f');
+            sendCommand(['Add', null, null, 'Check nat.']);
             break;
         case 'Added':
             sendCommand(['Exec', ev.data[1]]);
             sendCommand(['Goals', ev.data[1]]); break;
         case 'GoalInfo':
-            for (let g of ev.data[1]) consl.write(g);  break;
+            if (ev.data[2]) consl.writeGoals(ev.data[2]);  break;
         case 'CoqExn':
-            if (ev.data[1]) consl.write(ev.data[1]);
+            if (ev.data[3]) consl.write(ev.data[3]);
             break;
         case 'Feedback':
             if (ev.data[1].contents[0] === 'Message')
@@ -45,7 +50,7 @@ function main() {
         }
     });
     
-    consl.on('data', (line) => sendCommand(["Add", line]));
+    consl.on('data', (line) => sendCommand(["Add", null, null, line]));
 
     Object.assign(window, {worker});
 }
