@@ -4,15 +4,16 @@ import { OCamlExecutable } from './ocaml_exec';
 
 
 
-const devMode = true;
-
-
 function postMessage(msg) {
     (<any>self).postMessage(msg);
 }
 
 async function main() {
-    var core = new OCamlExecutable({stdin: false, tty: false})
+    var binDir = process.env.NODE_NOW ? './bin' : '../bin';
+
+    var core = new OCamlExecutable({stdin: false, tty: false, binDir});
+    core.debug = () => {};
+    core.trace = () => {};
 
     var utf8 = new TextDecoder();
 
@@ -26,11 +27,11 @@ async function main() {
     var pm = new PackageManager(core.wasmFs.volume);
     pm.on('progress', ev => postMessage(['Progress', ev]));
     await pm.install({
-        "/lib/": new Resource('/bin/coq/dist.zip')
+        "/lib/": new Resource('../bin/coq/dist-init.zip')
     });
 
-    if (devMode)
-        await copy('/bin/icoq.bc', '/lib/icoq.bc');
+    if (process.env.NODE_ENV === 'development')  // Parcel sets this
+        await copy(`${binDir}/icoq.bc`, '/lib/icoq.bc');
 
     postMessage(['Starting']);
 
@@ -47,9 +48,10 @@ async function main() {
     api.free(x);
 
     addEventListener('message', (msg) => {
-        console.log(msg);
+        console.log(msg.data);
         if (!callbacks.post) return;
-        var answer = api.caml_callback(callbacks.post, core.to_caml_string(msg.data));
+        var cmd = (typeof msg.data === 'string') ? msg.data : JSON.stringify(msg.data),
+            answer = api.caml_callback(callbacks.post, core.to_caml_string(cmd));
         for (let msg of JSON.parse(<any>core.proc.userGetCString(answer)))
             postMessage(msg);
     });
