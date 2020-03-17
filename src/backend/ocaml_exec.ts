@@ -16,20 +16,22 @@ class OCamlExecutable extends ExecCore {
 
     opts: OCamlExecutableOptions
     api: OCamlCAPI
+    callbacks: {[name: string]: i32}
 
     constructor(opts: OCamlExecutableOptions) {
         super(opts);
     }
 
-    async run(bytecodeFile: string) {
+    async run(bytecodeFile: string, args: string[], callbacks: string[] = []) {
         var bin = this.opts.binDir || '../bin';
 
         for (let p of this.preloads())
             await this.proc.dyld.preload(p.name, p.uri, p.reloc);
 
-        await this.start(`${bin}/ocaml/ocamlrun.wasm`, ['ocamlrun', bytecodeFile]);
+        await this.start(`${bin}/ocaml/ocamlrun.wasm`, ['ocamlrun', bytecodeFile, ...args]);
 
         this.api = <any>this.wasm.instance.exports as OCamlCAPI;
+        this.callbacks = this._getCallbacks(callbacks);
     }
 
     preloads() {
@@ -54,6 +56,17 @@ class OCamlExecutable extends ExecCore {
             a = this.api.caml_alloc_string(bytes.length);
         this.proc.membuf.set(bytes, a);
         return a;
+    }
+
+    _getCallbacks(names: string[]) {
+        var callbacks: {[name: string]: i32} = {},
+            x = this.api.malloc(Math.max(...names.map(s => s.length)) + 1);;
+        for (let name of names) {
+            this.proc.membuf.write(name + "\0", x);
+            callbacks[name] = this.proc.mem.getUint32(this.api.caml_named_value(x), true);
+        }
+        this.api.free(x);
+        return callbacks;     
     }
 
 }

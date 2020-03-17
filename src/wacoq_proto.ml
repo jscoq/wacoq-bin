@@ -41,7 +41,7 @@ type search_query =
 
 type wacoq_cmd =
   | Init
-  | Add     of Stateid.t option * Stateid.t option * string
+  | Add     of Stateid.t option * Stateid.t option * string * bool
   | Exec    of Stateid.t
   | Cancel  of Stateid.t
   | Goals   of Stateid.t

@@ -150,7 +150,7 @@ end
 
 let jscoq_execute = function
   | Init ->                    [Ready (Interpreter.tip ())]
-  | Add (from, newid, stm) ->  [Added (Interpreter.add ?from ?newid stm, None)]
+  | Add (from, newid, stm, _) ->  [Added (Interpreter.add ?from ?newid stm, None)]
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
   | Goals sid ->               [GoalInfo (sid, Interpreter.get_goals ~sid)]

@@ -1,6 +1,6 @@
 import { PackageManager, Resource } from 'basin-shell/src/package-mgr';
 
-import { OCamlExecutable } from './ocaml_exec';
+import { OCamlExecutable } from './backend/ocaml_exec';
 
 
 
@@ -38,17 +38,10 @@ async function main() {
 
     postMessage(['Starting']);
 
-    await core.run('/lib/icoq.bc');
+    await core.run('/lib/icoq.bc', [], ['post']);
 
-    const api = core.api;
+    const api = core.api, callbacks = core.callbacks;
 
-    const callbackNames = ['post'], callbacks: any = {},
-          x = api.malloc(40);
-    for (let nm of callbackNames) {
-        core.proc.membuf.write(nm + "\0", x);
-        callbacks[nm] = core.proc.mem.getUint32(api.caml_named_value(x), true);
-    }
-    api.free(x);
 
     handleCommand = (cmd) => {
         if (cmd[0] === 'LoadPkg') { loadPackage(cmd[1]); return; }

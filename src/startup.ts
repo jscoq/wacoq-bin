@@ -4,7 +4,12 @@ import { InteractiveConsole } from './ui/console';
 
 
 function main() {
-    var startTime = +new Date();
+    var startTime = +new Date(),
+        elapsed = () => +new Date() - startTime;
+
+    function milestone(caption) {
+        console.log(`%c${caption} (+${elapsed()}ms)`, 'color: #99f');
+    }
 
     var worker = new Worker(0 || './worker.js');  // bypass Parcel (fails to build worker at the moment)
 
@@ -20,15 +25,15 @@ function main() {
 
         switch (ev.data[0]) {
         case 'Starting':
-            console.log(`%cStarting (+${+new Date() - startTime}ms)`, 'color: #99f');
+            milestone('Starting');
             consl.showProgress('Starting', {done: false});  break;
         case 'Boot':
-            console.log(`%cBoot (+${+new Date() - startTime}ms)`, 'color: #99f');
+            milestone('Boot');
             sendCommand(['Init']); break;
         case 'Ready':
+            milestone('Ready');
             consl.showProgress('Starting', {done: true});
-            console.log(`%cReady (+${+new Date() - startTime}ms)`, 'color: #99f');
-            sendCommand(['Add', null, null, 'Check nat.']);
+            sendCommand(['Add', null, null, 'Check nat.', true]);
             break;
         case 'Added':
             sendCommand(['Exec', ev.data[1]]);
@@ -50,7 +55,7 @@ function main() {
         }
     });
     
-    consl.on('data', (line) => sendCommand(['Add', null, null, line]));
+    consl.on('data', (line) => sendCommand(['Add', null, null, line, true]));
 
     consl.on('load-pkg', (ev) => worker.postMessage(['LoadPkg', ev.uri]));
 
