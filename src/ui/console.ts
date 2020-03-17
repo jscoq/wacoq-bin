@@ -26,14 +26,20 @@ class InteractiveConsole extends EventEmitter {
                 this.prompt.val('');
             }
         });
+
+        this.console.find('.side-note a').click((ev) => {
+            ev.preventDefault();
+            $(ev.target).closest('.side-note').remove();
+            this.emit('load-pkg', {uri: '/bin/coq/dist-full.zip'});
+        });
     }
 
     write(msg : string | any[]) {
         var p = $('<div>');
         if (typeof msg === 'string')
-            p.text(msg);
+            p.addClass('plain').text(msg);
         else 
-            p.append(...this.pprint.pp2DOM(msg));
+            p.addClass('pp').append(...this.pprint.pp2DOM(msg));
         p.insertBefore(this.prompt);
         return p;
     }
@@ -45,11 +51,20 @@ class InteractiveConsole extends EventEmitter {
         return p;
     }
 
-    showProgress(desc: string, done: boolean, msg?: string) {
-        if (done) {
-            var p = this.progress[desc];
+    showProgress(desc: string, props: any, msg?: string) {
+        var p = this.progress[desc];
+        if (props.done) {
             if (p) {
                 p.remove(); delete this.progress[desc];
+            }
+        }
+        else if (props.download && p) {
+            if (props.download.total) {
+                var ratio = props.download.downloaded / props.download.total,
+                    span = p.find('span.percent');
+                if (span.length == 0)
+                    p.append(span = $('<span>').addClass('percent'));
+                span.text(`${(ratio * 100).toFixed(1)}%`);
             }
         }
         else {

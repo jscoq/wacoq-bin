@@ -21,12 +21,12 @@ function main() {
         switch (ev.data[0]) {
         case 'Starting':
             console.log(`%cStarting (+${+new Date() - startTime}ms)`, 'color: #99f');
-            consl.showProgress('Starting', false);  break;
+            consl.showProgress('Starting', {done: false});  break;
         case 'Boot':
             console.log(`%cBoot (+${+new Date() - startTime}ms)`, 'color: #99f');
             sendCommand(['Init']); break;
         case 'Ready':
-            consl.showProgress('Starting', true);
+            consl.showProgress('Starting', {done: true});
             console.log(`%cReady (+${+new Date() - startTime}ms)`, 'color: #99f');
             sendCommand(['Add', null, null, 'Check nat.']);
             break;
@@ -44,13 +44,15 @@ function main() {
             break;
         case 'Progress':
             var e = ev.data[1];
-            if (e.content.uri) consl.showProgress(e.content.uri, e.done,
+            if (e.content.uri) consl.showProgress(e.content.uri, e,
                 `Downloading ${e.content.uri}...`);
             break;
         }
     });
     
-    consl.on('data', (line) => sendCommand(["Add", null, null, line]));
+    consl.on('data', (line) => sendCommand(['Add', null, null, line]));
+
+    consl.on('load-pkg', (ev) => worker.postMessage(['LoadPkg', ev.uri]));
 
     Object.assign(window, {worker});
 }

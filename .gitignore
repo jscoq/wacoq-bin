@@ -11,7 +11,7 @@ node_modules
 /npm-link
 
 # local configuration for now.sh
-/.now
+.now
 /.nowignore
 /now.json
 /publish.sh

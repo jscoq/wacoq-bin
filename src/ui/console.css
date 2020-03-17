@@ -10,3 +10,16 @@
     margin-bottom: .5em;
     background: #eee;
 }
+
+#console div.pp div[data-mode=horizontal] {
+    display: inline;
+}
+
+#console p.side-note {
+    text-align: right;
+}
+
+#console span.percent {
+    margin-left: 1em;
+    color: #999;
+}
