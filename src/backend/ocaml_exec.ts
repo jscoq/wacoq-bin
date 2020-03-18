@@ -1,6 +1,7 @@
 import { ExecCore, ExecCoreOptions } from 'wasi-kernel/src/kernel/exec';
 
 
+
 interface OCamlCAPI {
     malloc(sz: i32): i32;
     free(p: i32): void;
@@ -45,10 +46,7 @@ class OCamlExecutable extends ExecCore {
                 'caml_serialize_block_4', 'caml_deserialize_uint_4', 'caml_deserialize_block_4',
                 'caml_invalid_argument', 'caml_named_value', 'caml_raise', 'snprintf'
             ]}
-        })).concat(['dllbyterun_stubs'].map(b => ({
-            name: `${b}.so`, uri: `${bin}/coq/${b}.wasm`,
-            reloc: {data: ['caml_atom_table'], func: ['caml_copy_double']}
-        })));        
+        }));       
     }
 
     to_caml_string(s: string) {

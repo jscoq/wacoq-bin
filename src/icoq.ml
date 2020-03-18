@@ -1,6 +1,8 @@
 open Wacoq_proto.Proto
 
 
+external emit : string -> unit = "wacoq_emit"
+
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{
     path_spec = VoPath {
@@ -122,25 +124,13 @@ module Interpreter = struct
   let refresh_load_path () =
     List.iter Loadpath.add_coq_path default_load_path
 
-  let fb_queue : Feedback.feedback list ref = ref []
-
-  let fb_handler (feedback : Feedback.feedback) =
-    fb_queue := feedback :: !fb_queue ;
-    match feedback.contents with
-      Message(l, _, msg) -> 
-        print_endline @@ "-------\n" ^ Pp.string_of_ppcmds msg ;
-        if l = Error then ( print_endline @@ "ERROR " ^ Stateid.to_string feedback.span_id ; error := Some feedback.span_id )
-    | _ -> ()
-
-  let fb_flush () = let fb = !fb_queue in fb_queue := []; fb
-
   let cleanup () =
     match !error with
     | Some sid -> error := None ; ignore @@ cancel ~sid
     | _ -> ()
 
   let init () = 
-    ignore @@ Feedback.add_feeder fb_handler;
+    (*ignore @@ Feedback.add_feeder fb_handler;*)
     let doc, initial = init () in
     state := Some (doc, [initial]);
     initial
@@ -158,14 +148,19 @@ let jscoq_execute = function
   | Inspect (_, _, _) ->       [(* not implemented*)]
   | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
 
-let fb_flush () =
-  List.rev_map (fun fb -> Feedback fb) @@ Interpreter.fb_flush ()
+let deserialize (json : string) =
+  [%of_yojson: wacoq_cmd] @@ Yojson.Safe.from_string json
+
+let serialize (answers : wacoq_answer list) =
+  Yojson.Safe.to_string @@ `List (List.map [%to_yojson: wacoq_answer] answers)
+
+let fb_handler (fb : Feedback.feedback) =
+  emit @@ serialize [Feedback fb]
 
 let handleRequest json_str =
   let resp =
   try
-    let json = Yojson.Safe.from_string json_str        in
-    let cmd = [%of_yojson: wacoq_cmd] json             in
+    let cmd = deserialize json_str                     in
     match cmd with
       | Result.Error e -> [JsonExn e]
       | Result.Ok cmd -> jscoq_execute cmd
@@ -173,12 +168,13 @@ let handleRequest json_str =
     let (e, info) = CErrors.push exn                   in
     [CoqExn (Loc.get_loc info, Stateid.get info, CErrors.iprint (e, info))]
   in
-  let fb_and_resp = fb_flush () @ resp in
   Interpreter.cleanup () ;
-  Yojson.Safe.to_string @@ `List (List.map [%to_yojson: wacoq_answer] fb_and_resp)
+  serialize resp
+
 
 let _ =
   try
+    ignore @@ Feedback.add_feeder fb_handler;
     ignore @@ Interpreter.init () ;  (* must be called before '_' exits?.. *)
     Callback.register "post" handleRequest
   with CErrors.UserError(Some x, y) ->

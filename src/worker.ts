@@ -11,6 +11,11 @@ function postMessage(msg) {
     (<any>self).postMessage(msg);
 }
 
+function postMessagesFromJson(json: string | Uint8Array) {
+    for (let msg of JSON.parse(<any>json))
+        postMessage(msg);
+}
+
 async function main() {
     var binDir = process.env.NODE_NOW ? './bin' : '../bin';
 
@@ -38,6 +43,8 @@ async function main() {
 
     postMessage(['Starting']);
 
+    preloadStub(core);
+
     await core.run('/lib/icoq.bc', [], ['post']);
 
     const api = core.api, callbacks = core.callbacks;
@@ -50,8 +57,7 @@ async function main() {
 
         var json = (typeof cmd === 'string') ? cmd : JSON.stringify(cmd),
             answer = api.caml_callback(callbacks.post, core.to_caml_string(json));
-        for (let msg of JSON.parse(<any>core.proc.userGetCString(answer)))
-            postMessage(msg);
+        postMessagesFromJson(<any>core.proc.userGetCString(answer));
     };
 
     addEventListener('message', (msg) => {
@@ -64,6 +70,19 @@ async function main() {
     Object.assign(global, {core, api, callbacks, pm, Resource});
 }
 
+
+function preloadStub(core: OCamlExecutable) {
+    core.proc.dyld.preload(
+        'dllbyterun_stubs.so', `${core.opts.binDir}/coq/dllbyterun_stubs.wasm`,
+        {
+            data: ['caml_atom_table'], func: ['caml_copy_double'],
+            js: {
+                wacoq_emit_js: (s:number) =>
+                    postMessagesFromJson(core.proc.userGetCString(s))
+            }
+        }
+    );
+}
 
 async function loadPackage(uri) {
     await pm.install({
