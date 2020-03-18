@@ -8,6 +8,10 @@ BUILD_CONTEXT = wacoq
 COQBUILDDIR_REL := vendor/coq
 COQBUILDDIR := $(current_dir)/_build/$(BUILD_CONTEXT)/$(COQBUILDDIR_REL)
 
+EMSDK = ~/var/ext/emsdk
+OCAML_INC = ${shell ocamlc -config-var standard_library}
+
+
 .PHONY: bootstrap setup deps
 
 bootstrap: setup deps
@@ -16,6 +20,19 @@ setup:
 	etc/setup.sh
 
 deps: coq coq-serapi
+
+bin/coq/dllbyterun_stubs.wasm: src/backend/byterun_stubs.c
+	source $(EMSDK)/emsdk_env.sh && \
+	emcc -Os -s SIDE_MODULE=1 $< -o $@ -I${OCAML_INC}
+
+
+dist-npm:
+	rm -rf staging/dist
+	parcel build -d staging/dist --no-source-maps src/index.html
+	parcel build -d staging/dist --no-source-maps src/worker.ts
+	cp package.json staging/
+	ln -s ../bin staging/
+	tar zchf wacoq-bin.tar.gz -C staging ./package.json ./dist ./bin	
 
 ########################################################################
 # Externals
