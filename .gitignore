@@ -9,6 +9,8 @@ node_modules
 /public
 /staging
 
+*.tar.gz
+
 /npm-link
 
 # local configuration for now.sh
