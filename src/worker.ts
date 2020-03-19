@@ -33,9 +33,9 @@ async function main() {
     }
 
     pm = new PackageManager(core.wasmFs.volume);
-    pm.on('progress', ev => postMessage(['Progress', ev]));
+    pm.on('progress', ev => postMessage(['LibProgress', ev]));
     await pm.install({
-        "/lib/": new Resource(`${binDir}/coq/dist-init.zip`)
+        "/lib/": new Resource(`${binDir}/coq/init.coq-pkg`)
     });
 
     if (process.env.NODE_ENV === 'development')  // Parcel sets this

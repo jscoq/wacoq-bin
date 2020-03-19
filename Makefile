@@ -27,12 +27,13 @@ bin/coq/dllbyterun_stubs.wasm: src/backend/byterun_stubs.c
 
 
 dist-npm:
-	rm -rf staging/dist
+	rm -rf staging
 	parcel build -d staging/dist --no-source-maps src/index.html
 	parcel build -d staging/dist --no-source-maps src/worker.ts
 	cp package.json staging/
 	ln -s ../bin staging/
-	tar zchf wacoq-bin.tar.gz -C staging ./package.json ./dist ./bin	
+	tar zchf wacoq-bin.tar.gz -C staging --exclude icoq.bc \
+		./package.json ./dist ./bin	
 
 ########################################################################
 # Externals

@@ -3,6 +3,8 @@ open Wacoq_proto.Proto
 
 external emit : string -> unit = "wacoq_emit"
 
+let wacoq_version = "0.11.0-alpha1"
+
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{
     path_spec = VoPath {
@@ -14,8 +16,7 @@ let make_coqpath ?(implicit=true) unix_path lib_path =
     recursive = true;
   }
 
-let default_load_path = [make_coqpath "/lib/plugins" ["Coq"];
-                         make_coqpath "/lib/theories" ["Coq"]]
+let default_load_path = [make_coqpath "/lib" []]
 
 let init () =
   (* Coqinit.set_debug (); *)
@@ -52,6 +53,9 @@ module Interpreter = struct
   let error : Stateid.t option ref = ref None
 
   let _fresh_cnt = ref 1
+
+  let version =
+    Coq_config.version, Coq_config.date, Coq_config.compile_date, Coq_config.caml_version, Coq_config.vo_magic_number
 
   let here () =
     let (doc, states) = Option.get !state in (doc, List.hd states)
@@ -138,6 +142,16 @@ module Interpreter = struct
 end
 
 
+let info_string () =
+  let coqv, coqd, ccd, ccv, cmag = Interpreter.version              in
+  let info1 = Printf.sprintf
+              "waCoq %s, Coq %s/%4d (%s),\n  compiled on %s\n"
+              wacoq_version coqv cmag coqd ccd                      in
+  let info2 = Printf.sprintf
+              "OCaml %s (wasi-sdk)\n" ccv                           in
+  info1 ^ info2
+
+
 let jscoq_execute = function
   | Init ->                    [Ready (Interpreter.tip ())]
   | Add (from, newid, stm, _) ->  [Added (Interpreter.add ?from ?newid stm, None)]
@@ -174,7 +188,8 @@ let handleRequest json_str =
 
 let _ =
   try
-    ignore @@ Feedback.add_feeder fb_handler;
+    emit @@ serialize [CoqInfo (info_string ())] ;
+    ignore @@ Feedback.add_feeder fb_handler ;
     ignore @@ Interpreter.init () ;  (* must be called before '_' exits?.. *)
     Callback.register "post" handleRequest
   with CErrors.UserError(Some x, y) ->

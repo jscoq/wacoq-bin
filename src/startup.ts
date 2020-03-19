@@ -47,7 +47,7 @@ function main() {
             if (ev.data[1].contents[0] === 'Message')
                 consl.write(ev.data[1].contents[3]);
             break;
-        case 'Progress':
+        case 'LibProgress':
             var e = ev.data[1];
             if (e.content.uri) consl.showProgress(e.content.uri, e,
                 `Downloading ${e.content.uri}...`);

@@ -53,6 +53,7 @@ type wacoq_cmd =
   [@@deriving yojson]
 
 type wacoq_answer =
+  | CoqInfo   of string
   | Ready     of Stateid.t
   | Added     of Stateid.t * Loc.t option
   | BackTo    of Stateid.t
