@@ -17,7 +17,7 @@ class OCamlExecutable extends ExecCore {
 
     opts: OCamlExecutableOptions
     api: OCamlCAPI
-    callbacks: {[name: string]: i32}
+    callbacks: {[name: string]: (arg: i32) => i32}
 
     constructor(opts: OCamlExecutableOptions) {
         super(opts);
@@ -57,11 +57,15 @@ class OCamlExecutable extends ExecCore {
     }
 
     _getCallbacks(names: string[]) {
-        var callbacks: {[name: string]: i32} = {},
+        var callbacks: {[name: string]: (arg: i32) => i32} = {},
             x = this.api.malloc(Math.max(...names.map(s => s.length)) + 1);;
         for (let name of names) {
             this.proc.membuf.write(name + "\0", x);
-            callbacks[name] = this.proc.mem.getUint32(this.api.caml_named_value(x), true);
+            let closure_f = this.api.caml_named_value(x);
+            if (closure_f) {
+                callbacks[name] = (arg: i32) =>
+                    this.api.caml_callback(this.proc.mem.getUint32(closure_f, true), arg);
+            }
         }
         this.api.free(x);
         return callbacks;     

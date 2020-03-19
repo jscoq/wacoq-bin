@@ -8,7 +8,6 @@ mkdir -p bin/coq
 
 # init
 rm -f bin/coq/init.coq-pkg
-zip -j bin/coq/init.coq-pkg ./_build/$SWITCH/src/icoq.bc
 
 rm -rf staging ; mkdir staging
 

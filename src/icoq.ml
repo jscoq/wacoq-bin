@@ -134,7 +134,6 @@ module Interpreter = struct
     | _ -> ()
 
   let init () = 
-    (*ignore @@ Feedback.add_feeder fb_handler;*)
     let doc, initial = init () in
     state := Some (doc, [initial]);
     initial
@@ -153,7 +152,7 @@ let info_string () =
 
 
 let jscoq_execute = function
-  | Init ->                    [Ready (Interpreter.tip ())]
+  | Init ->                    [Ready (Interpreter.init ())]
   | Add (from, newid, stm, _) ->  [Added (Interpreter.add ?from ?newid stm, None)]
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
@@ -190,7 +189,6 @@ let _ =
   try
     emit @@ serialize [CoqInfo (info_string ())] ;
     ignore @@ Feedback.add_feeder fb_handler ;
-    ignore @@ Interpreter.init () ;  (* must be called before '_' exits?.. *)
-    Callback.register "post" handleRequest
+    Callback.register "wacoq_post" handleRequest
   with CErrors.UserError(Some x, y) ->
     print_endline @@ "error! " ^ x ^ ": " ^ Pp.string_of_ppcmds y
