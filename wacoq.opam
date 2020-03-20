@@ -4,9 +4,9 @@ name:         "wacoq"
 opam-version: "2.0"
 maintainer:   "corwin.amber@gmail.com"
 authors:      "Shachar Itzhaky"
-homepage:     "https://github.com/corwin-of-amber/coq-wasm"
-bug-reports:  "https://github.com/corwin-of-amber/coq-wasm"
-dev-repo:     "git+https://github.com/corwin-of-amber/coq-wasm.git"
+homepage:     "https://github.com/corwin-of-amber/wacoq-bin"
+bug-reports:  "https://github.com/corwin-of-amber/wacoq-bin"
+dev-repo:     "git+https://github.com/corwin-of-amber/wacoq-bin.git"
 license:      "AGPL 3"
 
 depends: [
