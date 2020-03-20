@@ -4,96 +4,126 @@ import { OCamlExecutable } from './backend/ocaml_exec';
 
 
 
-var core: OCamlExecutable, pm: PackageManager,
-    handleCommand: (msg: string | any[]) => void;
+class IcoqPod {
+
+    core: OCamlExecutable
+    pm: PackageManager
+
+    binDir: string
+
+    constructor(binDir?: string) {
+        binDir = binDir || (process.env.NODE_NOW ? './bin' : '../bin');
+        this.binDir = binDir;
+
+        this.core = new OCamlExecutable({stdin: false, tty: false, binDir});
+        this.core.debug = () => {};
+        this.core.trace = () => {};        
+
+        var utf8 = new TextDecoder();
+        this.core.on('stream:out', ev => console.log(utf8.decode(ev.data)));
+
+        this.pm = new PackageManager(this.core.wasmFs.volume);
+    }
+
+    get fs() { return this.core.wasmFs.fs; }
+
+    async main() {
+        this.fs.mkdirpSync('/lib');
+        await this.upload(`${this.binDir}/icoq.bc`, '/lib/icoq.bc');
+    
+        this._preloadStub();
+    
+        await this.core.run('/lib/icoq.bc', [], ['wacoq_post']);
+    
+        await this.loadPackage('+init', false);    
+    }
+
+    async upload(fromUri: string | RequestInfo, toPath: string) {
+        var content = await (await fetch(fromUri)).arrayBuffer();
+        this.fs.writeFileSync(toPath, new Uint8Array(content));
+    }
+
+    async loadPackage(uri: string, refresh: boolean=true) {
+        if (uri[0] == '+')
+            uri = `${this.binDir}/coq/${uri.substring(1)}.coq-pkg`;
+
+        await this.pm.install({
+            "/lib/": new Resource(uri)
+        });
+    
+        if (refresh)
+            this.command(['RefreshLoadPath']);
+    }
+
+    command(cmd: any[]) {
+        if (cmd[0] === 'LoadPkg') { this.loadPackage(cmd[1]); return; }
+
+        const wacoq_post = this.core.callbacks.wacoq_post;
+        if (!wacoq_post) return;
+    
+        var json = (typeof cmd === 'string') ? cmd : JSON.stringify(cmd),
+            answer = wacoq_post(this.core.to_caml_string(json));
+        this._answer(answer);
+    }
+    
+    answer(msgs: any[][]) {
+        for (let msg of msgs) postMessage(msg);
+        /*
+        for (let msg of msgs) {
+            if (msg[0] != 'Feedback') console.log(msg);
+            if (msg[0] == 'Feedback' && msg[1].contents[0] == 'Message')
+                console.log(msg[1].contents[3]);
+                    new FormatPrettyPrint().pp2Text(msg[1].contents[3]));
+        }*/
+    }
+    
+    _answer(ptr: number) {
+        var cstr = this.core.proc.userGetCString(ptr);
+        this.answer(JSON.parse(<any>cstr));
+    }
+
+    /**
+     * (internal) Initializes the dllbyterun_stub shared library.
+     */
+    _preloadStub() {
+        this.core.proc.dyld.preload(
+            'dllbyterun_stubs.so', `${this.binDir}/coq/dllbyterun_stubs.wasm`,
+            {
+                data: ['caml_atom_table'], func: ['caml_copy_double'],
+                js: {
+                    wacoq_emit_js: (s:number) => this._answer(s)
+                }
+            }
+        );
+    }    
+}
+
 
 function postMessage(msg) {
     (<any>self).postMessage(msg);
 }
 
-function postMessagesFromJson(json: string | Uint8Array) {
-    for (let msg of JSON.parse(<any>json))
-        postMessage(msg);
-}
 
 async function main() {
-    var binDir = process.env.NODE_NOW ? './bin' : '../bin';
-
-    core = new OCamlExecutable({stdin: false, tty: false, binDir});
-    core.debug = () => {};
-    core.trace = () => {};
-
-    var utf8 = new TextDecoder();
-
-    core.on('stream:out', ev => console.log(utf8.decode(ev.data)));
-
-    async function copy(fromUri, toPath) {
-        var content = await (await fetch(fromUri)).arrayBuffer();
-        core.wasmFs.fs.writeFileSync(toPath, new Uint8Array(content));
-    }
+    var icoq = new IcoqPod();
 
     postMessage(['Starting']);
-
-    core.wasmFs.fs.mkdirpSync('/lib');
-    await copy(`${binDir}/icoq.bc`, '/lib/icoq.bc');
-
-    preloadStub(core);
-
-    await core.run('/lib/icoq.bc', [], ['wacoq_post']);
-
-
-    pm = new PackageManager(core.wasmFs.volume);
-    pm.on('progress', ev => postMessage(['LibProgress', ev]));
-    await pm.install({
-        "/lib/": new Resource(`${binDir}/coq/init.coq-pkg`)
-    });
-
-
-    const api = core.api, callbacks = core.callbacks;
-
-
-    handleCommand = (cmd) => {
-        if (cmd[0] === 'LoadPkg') { loadPackage(cmd[1]); return; }
-
-        if (!callbacks.wacoq_post) return;
-
-        var json = (typeof cmd === 'string') ? cmd : JSON.stringify(cmd),
-            answer = callbacks.wacoq_post(core.to_caml_string(json));
-        postMessagesFromJson(<any>core.proc.userGetCString(answer));
-    };
+    icoq.pm.on('progress', ev => postMessage(['LibProgress', ev]));
 
     addEventListener('message', (msg) => {
         console.log(msg.data);
-        handleCommand(msg.data);
+        icoq.command(msg.data);
     });
+
+    await icoq.main();
 
     postMessage(['Boot']);
 
-    Object.assign(global, {core, api, callbacks, pm, Resource, handleCommand});
+    Object.assign(global, {icoq});
 }
-
-
-function preloadStub(core: OCamlExecutable) {
-    core.proc.dyld.preload(
-        'dllbyterun_stubs.so', `${core.opts.binDir}/coq/dllbyterun_stubs.wasm`,
-        {
-            data: ['caml_atom_table'], func: ['caml_copy_double'],
-            js: {
-                wacoq_emit_js: (s:number) =>
-                    postMessagesFromJson(core.proc.userGetCString(s))
-            }
-        }
-    );
-}
-
-async function loadPackage(uri) {
-    await pm.install({
-        "/lib/": new Resource(uri)
-    });
-    handleCommand(['RefreshLoadPath']);
-}
-
 
 main();
+
+
 
 Object.assign(global, {main});
