@@ -50,6 +50,9 @@ type wacoq_cmd =
   | Inspect of Stateid.t * Feedback.route_id * search_query
 
   | RefreshLoadPath
+
+  | Load    of string
+  | Compile of string
   [@@deriving yojson]
 
 type wacoq_answer =

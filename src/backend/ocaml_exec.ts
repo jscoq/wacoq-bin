@@ -1,4 +1,4 @@
-import { ExecCore, ExecCoreOptions } from 'wasi-kernel/src/kernel/exec';
+import { ExecCore, ExecCoreOptions } from 'wasi-kernel';
 
 
 

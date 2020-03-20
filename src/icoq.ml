@@ -140,6 +140,34 @@ module Interpreter = struct
 
 end
 
+module Compiler = struct
+
+  open Interpreter
+
+  let load filename ~echo =
+    let doc, tip = here () in
+    let vernac_state = Vernac.State.
+      { doc = doc; sid = tip; proof = None; time = false } in
+    (* loading with ~check:true to avoid some stack overflows in stm *)
+    let vernac_state' =
+      Vernac.load_vernac ~echo ~check:true ~interactive:false
+                          ~state:vernac_state filename in
+    push vernac_state'.doc vernac_state'.sid;
+    vernac_state'.sid
+
+  let compile_vo filename =
+    let doc, _ = here () in
+    ignore @@ Stm.join ~doc;
+    let dirp = Lib.library_dp () in
+    (* freeze and un-freeze to to allow "snapshot" compilation *)
+    (*  (normally, save_library_to closes the lib)             *)
+    let frz = Vernacstate.freeze_interp_state ~marshallable:false in
+    Library.save_library_to Library.ProofsTodoNone 
+      ~output_native_objects:false dirp filename (Global.opaque_tables ());
+    Vernacstate.unfreeze_interp_state frz
+
+end
+
 
 let info_string () =
   let coqv, coqd, ccd, ccv, cmag = Interpreter.version              in
@@ -160,6 +188,9 @@ let jscoq_execute = function
   | Query (_, _, _) ->         [(* not implemented*)]
   | Inspect (_, _, _) ->       [(* not implemented*)]
   | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
+
+  | Load filename ->           [Added (Compiler.load filename ~echo:false, None)]
+  | Compile filename ->        Compiler.compile_vo filename; []
 
 let deserialize (json : string) =
   [%of_yojson: wacoq_cmd] @@ Yojson.Safe.from_string json
