@@ -1,3 +1,6 @@
+// Build with
+//  parcel watch --target node src/cli.ts
+
 import * as fs from 'fs';
 
 import { PackageManager, Resource } from 'basin-shell';
@@ -33,7 +36,7 @@ async function main() {
 
     pm = new PackageManager(core.wasmFs.volume);
     await pm.install({
-        "/lib/": new FileResource(`${binDir}/coq/init.coq-pkg`),
+        "/lib/": new FileResource(`${binDir}/coq/coq-all.coq-pkg`),
     }, false);
 
     core.wasmFs.fs.mkdirpSync('/lib');
@@ -41,16 +44,25 @@ async function main() {
 
     preloadStub(core);
 
-    core.wasmFs.fs.mkdirpSync('/home');
-    core.wasmFs.fs.writeFileSync('/home/Module.v', "Check 0.");
+    core.wasmFs.fs.mkdirpSync('/lib/LF');
+    copy('examples/lf/Basics.v', '/lib/LF/Basics.v');
+    copy('examples/lf/Induction.v', '/lib/LF/Induction.v');
 
     await core.run('/lib/icoq.bc', [], ['wacoq_post']);
 
-    handleOutgoing(['Init']);
-    handleOutgoing(['Load', '/home/Module.v']);
-    handleOutgoing(['Compile', '/home/Module.vo']);
+    handleOutgoing(['Init', {top_name: 'LF.Basics'}]);
+    handleOutgoing(['Load', '/lib/LF/Basics.v']);
+    handleOutgoing(['Compile', '/lib/LF/Basics.vo']);
 
-    console.log(core.wasmFs.fs.readFileSync('/home/Module.vo'));
+    fs.writeFileSync('examples/lf/Basics.vo', core.wasmFs.fs.readFileSync('/lib/LF/Basics.vo'));
+
+    handleOutgoing(['Init', {top_name: 'LF.Induction'}]);
+    handleOutgoing(['Load', '/lib/LF/Induction.v']);
+    handleOutgoing(['Compile', '/lib/LF/Induction.vo']);
+
+    fs.writeFileSync('examples/lf/Induction.vo', core.wasmFs.fs.readFileSync('/lib/LF/Induction.vo'));
+
+    //console.log(core.wasmFs.fs.readFileSync('/home/Module.vo'));
 }
 
 
@@ -66,7 +78,7 @@ function handleOutgoing(cmd: any[]) {
 
 function handleIncoming(msgs: any[][]) {
     for (let msg of msgs) {
-        console.log(msg);
+        if (msg[0] != 'Feedback') console.log(msg);
         if (msg[0] == 'Feedback' && msg[1].contents[0] == 'Message')
             console.log(new FormatPrettyPrint().pp2Text(msg[1].contents[3]));
     }

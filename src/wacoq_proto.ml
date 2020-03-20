@@ -32,6 +32,10 @@ module Goals = struct
 
 end
 
+type startup_params =
+  [%import: Icoq_init.startup_params]
+  [@@deriving yojson]
+
 type search_query =
   | All
   | CurrentFile
@@ -40,7 +44,7 @@ type search_query =
   [@@deriving yojson]
 
 type wacoq_cmd =
-  | Init
+  | Init    of startup_params
   | Add     of Stateid.t option * Stateid.t option * string * bool
   | Exec    of Stateid.t
   | Cancel  of Stateid.t

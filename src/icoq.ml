@@ -18,7 +18,7 @@ let make_coqpath ?(implicit=true) unix_path lib_path =
 
 let default_load_path = [make_coqpath "/lib" []]
 
-let init () =
+let init params =
   (* Coqinit.set_debug (); *)
 
   Lib.init();
@@ -29,18 +29,13 @@ let init () =
   Stm.init_core ();
 
   (* Create an initial state of the STM *)
-  let sertop_dp = Stm.TopLogical (Libnames.dirpath_of_string "Lab") in
+  let sertop_dp = Stm.TopLogical (Libnames.dirpath_of_string params.top_name) in
+  let require_libs = List.map (fun lib -> (lib, None, Some true)) params.require_libs in
   let ndoc = { Stm.doc_type = Stm.Interactive sertop_dp;
-               require_libs = ["Coq.Init.Prelude", None, Some true];
+               require_libs = require_libs;
                iload_path = default_load_path;
                stm_options = Stm.AsyncOpts.default_opts } in
-  let ndoc, nsid = Stm.new_doc ndoc in
-
-  print_endline @@ "Stm sid=" ^ Stateid.to_string nsid;
-
-  ndoc, nsid 
-
-let next sid = Stateid.of_int @@ Stateid.to_int sid + 1
+  Stm.new_doc ndoc
 
 
 (*
@@ -98,7 +93,6 @@ module Interpreter = struct
     let newtip = match newid with | Some n -> n | _ -> fresh () in
     let doc, new_sid, _ = Stm.add ~doc ~ontop ~newtip true ast in
     push doc new_sid;
-    print_endline @@ "Add sid=" ^ Stateid.to_string new_sid;
     new_sid
 
   let add ?from ?newid stm =
@@ -133,8 +127,8 @@ module Interpreter = struct
     | Some sid -> error := None ; ignore @@ cancel ~sid
     | _ -> ()
 
-  let init () = 
-    let doc, initial = init () in
+  let init params = 
+    let doc, initial = init params in
     state := Some (doc, [initial]);
     initial
 
@@ -180,8 +174,9 @@ let info_string () =
 
 
 let jscoq_execute = function
-  | Init ->                    [Ready (Interpreter.init ())]
-  | Add (from, newid, stm, _) ->  [Added (Interpreter.add ?from ?newid stm, None)]
+  | Init params ->             [Ready (Interpreter.init params)]
+  | Add (from, newid, stm, _) ->  
+                               [Added (Interpreter.add ?from ?newid stm, None)]
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
   | Goals sid ->               [GoalInfo (sid, Interpreter.get_goals ~sid)]

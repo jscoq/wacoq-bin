@@ -1,4 +1,5 @@
-// parcel watch --hmr-hostname=localhost --public-url '.' src/index.html src/worker.ts &
+// Build with
+//  parcel watch --hmr-hostname=localhost --public-url '.' src/index.html src/worker.ts &
 
 import { InteractiveConsole } from './ui/console';
 
@@ -29,7 +30,7 @@ function main() {
             consl.showProgress('Starting', {done: false});  break;
         case 'Boot':
             milestone('Boot');
-            sendCommand(['Init']); break;
+            sendCommand(['Init', {}]); break;
         case 'Ready':
             milestone('Ready');
             consl.showProgress('Starting', {done: true});
