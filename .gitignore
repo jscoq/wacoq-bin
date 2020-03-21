@@ -12,6 +12,7 @@ node_modules
 *.tar.gz
 
 /npm-link
+/scratch
 
 # local configuration for now.sh
 .now

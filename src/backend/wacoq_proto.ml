@@ -67,6 +67,9 @@ type wacoq_answer =
   | GoalInfo  of Stateid.t * Goals.t option
   | Feedback  of Feedback.feedback
 
+  | Loaded    of string * Stateid.t
+  | Compiled  of string
+
   | CoqExn    of Loc.t option * (Stateid.t * Stateid.t) option * Pp.t
   | JsonExn   of string
   [@@deriving to_yojson]

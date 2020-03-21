@@ -55,8 +55,24 @@ class IcoqPod {
             this.command(['RefreshLoadPath']);
     }
 
+    async loadSources(uri: string, dirpath: string) {
+        var subdir = dirpath.replace(/[.]|(?<=[^/])$/g, '/');
+        await this.pm.install({
+            [`/src/${subdir}`]: new Resource(uri)
+        });
+    }
+
+    putFile(filename: string, content: Uint8Array | string) {
+        // needs to be synchronous
+        this.fs.mkdirpSync(filename.replace(/[/][^/]+$/, ''))
+        this.fs.writeFileSync(filename, content);
+    }
+
     command(cmd: any[]) {
-        if (cmd[0] === 'LoadPkg') { this.loadPackage(cmd[1]); return; }
+        switch (cmd[0]) {
+        case 'LoadPkg':   this.loadPackage(cmd[1]);                return;
+        case 'Put':       this.putFile(cmd[1], cmd[2]);            return;
+        }
 
         const wacoq_post = this.core.callbacks.wacoq_post;
         if (!wacoq_post) return;
@@ -68,13 +84,6 @@ class IcoqPod {
     
     answer(msgs: any[][]) {
         for (let msg of msgs) postMessage(msg);
-        /*
-        for (let msg of msgs) {
-            if (msg[0] != 'Feedback') console.log(msg);
-            if (msg[0] == 'Feedback' && msg[1].contents[0] == 'Message')
-                console.log(msg[1].contents[3]);
-                    new FormatPrettyPrint().pp2Text(msg[1].contents[3]));
-        }*/
     }
     
     _answer(ptr: number) {

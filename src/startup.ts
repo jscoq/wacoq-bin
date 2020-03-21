@@ -2,6 +2,9 @@
 //  parcel watch --hmr-hostname=localhost --public-url '.' src/index.html src/worker.ts &
 
 import { InteractiveConsole } from './ui/console';
+import { CoqDep } from './build/coqdep';
+import { build } from './build/batch';
+
 
 
 function main() {
@@ -65,4 +68,4 @@ function main() {
 
 
 
-Object.assign(window, {main});
+Object.assign(window, {main, CoqDep, build});

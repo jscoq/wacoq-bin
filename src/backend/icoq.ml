@@ -184,8 +184,8 @@ let jscoq_execute = function
   | Inspect (_, _, _) ->       [(* not implemented*)]
   | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
 
-  | Load filename ->           [Added (Compiler.load filename ~echo:false, None)]
-  | Compile filename ->        Compiler.compile_vo filename; []
+  | Load filename ->           [Loaded (filename, Compiler.load filename ~echo:false)]
+  | Compile filename ->        Compiler.compile_vo filename; [Compiled filename]
 
 let deserialize (json : string) =
   [%of_yojson: wacoq_cmd] @@ Yojson.Safe.from_string json
