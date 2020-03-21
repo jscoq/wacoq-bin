@@ -29,8 +29,10 @@ class InteractiveConsole extends EventEmitter {
 
         this.console.find('.side-note a').click((ev) => {
             ev.preventDefault();
-            $(ev.target).closest('.side-note').remove();
-            this.emit('load-pkg', {uri: '+coq-all'});
+            var side = $(ev.target).closest('.side-note');
+            $(ev.target).remove();
+            if (side.find('a').length == 0) side.remove();
+            this.emit('load-pkg', {uri: $(ev.target).attr('href')});
         });
     }
 

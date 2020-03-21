@@ -5,14 +5,19 @@ import { SearchPath, SearchPathElement } from './project';
 
 class CoqDep {
 
-    fsif: FSInterface
+    volume: FSInterface
     searchPath: SearchPath
     deps: {from: SearchPathElement, to: SearchPathElement[]}[]
 
-    constructor(fsif=fsif_native) {
-        this.fsif = fsif;
-        this.searchPath = new SearchPath();
+    constructor(volume: FSInterface = fsif_native) {
+        this.volume = volume;
+        this.searchPath = new SearchPath(volume);
         this.deps = [];
+    }
+
+    processPackage(pkg: string) {
+        for (let mod of this.searchPath.modulesOf(pkg))
+            this.processModule(mod);
     }
 
     processModule(mod: SearchPathElement) {
@@ -21,10 +26,11 @@ class CoqDep {
     }
 
     processVernacFile(filename: string, mod?: SearchPathElement) {
-        mod = mod || {logical: this.searchPath.toLogical(filename),
+        mod = mod || {volume: this.volume,
+                      logical: this.searchPath.toLogical(filename),
                       physical: filename};
         if (mod.logical) {
-            this.processVernac(this.fsif.fs.readFileSync(filename, 'utf-8'), 
+            this.processVernac(mod.volume.fs.readFileSync(filename, 'utf-8'), 
                                mod);
         }
     }
@@ -35,14 +41,26 @@ class CoqDep {
             this.deps.push({from: mod, to: deps});
     }
 
+    depsToJson() {
+        var d = {},
+            key = (mod: SearchPathElement) => mod.logical.join('.');
+
+        for (let entry of this.deps)
+            d[key(entry.from)] = entry.to.map(key);
+
+        return d;
+    }
+
     /**
      * Basically, topological sort.
      * (TODO: allow parallel builds?)
      */
-    buildOrder() {
+    buildOrder(modules?: SearchPathElement[] | Generator<SearchPathElement>) {
+        if (!modules) modules = this.searchPath.modules();
+
         // Prepare graph
         var adj: Map<string, string[]> = new Map(),
-            modules: Map<string, SearchPathElement> = new Map(),
+            modulesByKey: Map<string, SearchPathElement> = new Map(),
             key = (mod: SearchPathElement) => mod.logical.join('.');
 
         for (let {from, to} of this.deps) {
@@ -53,13 +71,13 @@ class CoqDep {
             }
         }
 
-        for (let m of this.searchPath.modules()) {
-            modules.set(key(m), m);
+        for (let mod of modules) {
+            modulesByKey.set(key(mod), mod);
         }
 
         // Now the topological sort
-        var scan = this._topologicalSort([...modules.keys()], adj);
-        return scan.map(k => modules.get(k));
+        var scan = this._topologicalSort([...modulesByKey.keys()], adj);
+        return scan.map(k => modulesByKey.get(k));
     }
 
     _topologicalSort(vertices: string[], adj: Map<string, string[]>) {

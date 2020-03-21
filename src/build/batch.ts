@@ -41,7 +41,7 @@ class Batch {
 
 async function build(dir: string, logical: string | string[]) {
     var d = new CoqDep();
-    d.searchPath.add(dir, logical);
+    d.searchPath.add({physical: dir, logical});
     for (let m of d.searchPath.modules())
         d.processModule(m);
 
@@ -68,7 +68,7 @@ async function build(dir: string, logical: string | string[]) {
             vofilename = `/lib/${m.logical.join('/')}.vo`;
         await batch.do(
             ['Init', {top_name: m.logical.join('.')}],
-            ['Put', vfilename, d.fsif.fs.readFileSync(m.physical)],
+            ['Put', vfilename, m.volume.fs.readFileSync(m.physical)],
             ['Load', vfilename],       msg => msg[0] == 'Loaded',
             ['Compile', vofilename],   msg => msg[0] == 'Compiled');
     }

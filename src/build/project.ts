@@ -1,27 +1,105 @@
-import { FSInterface, fsif_native } from './fsif'
-import arreq from 'array-equal'
+import { FSInterface, fsif_native } from './fsif';
+import { CoqDep } from './coqdep';
+import arreq from 'array-equal';
 
 
+
+class CoqProject {
+
+    volume: FSInterface
+    name: string
+    searchPath: SearchPath
+
+    constructor(name?: string, volume: FSInterface = fsif_native) {
+        this.volume = volume;
+        this.name = name;
+        this.searchPath = new SearchPath(volume);
+    }
+
+    fromJson(json: {[root: string]: {prefix: string, dirpaths: string[]}},
+             baseDir: string = '', volume: FSInterface = this.volume) {
+        for (let root in json) {
+            var prefix = this.searchPath.toDirPath(json[root].prefix);
+            for (let sub of json[root].dirpaths) {
+                var dirpath = this.searchPath.toDirPath(sub),
+                    physical = volume.path.join(baseDir, root, ...dirpath),
+                    logical = prefix.concat(dirpath);
+                this.searchPath.addRecursive({volume, physical, logical, 
+                    pkg: this.name});
+            }
+        }
+        return this;
+    }
+
+    computeDeps() {
+        var coqdep = new CoqDep();
+        coqdep.searchPath = this.searchPath;
+
+        coqdep.processPackage(this.name);
+        return coqdep;
+    }
+
+    *modulesByExt(ext: string) {
+        for (let mod of this.searchPath.modulesOf(this.name))
+            if (mod.physical.endsWith(ext)) yield mod;
+    }
+    
+    createManifest() {
+        return {
+            name: this.name,
+            deps: this.computeDeps().depsToJson()
+        };
+    }
+
+    async toZip() {
+        const JSZip = await import('jszip'),
+              z = new JSZip();
+
+        for (let ext of ['.vo', '.cma']) {
+            for (let mod of this.modulesByExt(ext)) {
+                z.file(mod.logical.join('/') + ext,
+                    mod.volume.fs.readFileSync(mod.physical));
+            }
+        }
+        return z;
+    }
+
+}
 
 
 class SearchPath {
 
-    fsif: FSInterface
+    volume: FSInterface
     path: SearchPathElement[]
 
-    constructor(fsif: FSInterface = fsif_native) {
-        this.fsif = fsif;
+    constructor(volume: FSInterface = fsif_native) {
+        this.volume = volume;
         this.path = [];
     }
 
-    add(physical: string, logical: string | string[]) {
+    add({volume, physical, logical, pkg}: SearchPathAddParameters) {
+        volume = volume || this.volume;
         logical = this.toDirPath(logical);
-        this.path.push({logical, physical});
+        this.path.push({volume, logical, physical, pkg});
+    }
+
+    addRecursive({volume, physical, logical, pkg}: SearchPathAddParameters) {
+        volume = volume || this.volume;
+        logical = this.toDirPath(logical);
+        this.add({volume, physical, logical, pkg});
+        for (let subdir of volume.fs.readdirSync(physical)) {
+            var subphysical = volume.path.join(physical, subdir);
+            if (volume.fs.statSync(subphysical).isDirectory())
+                this.addRecursive({ volume,
+                                    physical: subphysical,
+                                    logical: logical.concat([subdir]),
+                                    pkg });
+        }
     }
 
     toLogical(filename: string) {
-        var dir = this.fsif.path.dirname(filename), 
-            base = this.fsif.path.basename(filename).replace(/[.]vo?$/, '');
+        var dir = this.volume.path.dirname(filename), 
+            base = this.volume.path.basename(filename).replace(/[.]vo?$/, '');
         for (let {logical, physical} of this.path) {
             if (physical === dir) return logical.concat([base])
         }
@@ -32,16 +110,23 @@ class SearchPath {
     }
 
     *modules(): Generator<SearchPathElement> {
-        for (let {logical, physical, pkg} of this.path) {
-            for (let fn of this.fsif.fs.readdirSync(physical)) {
-                if (fn.match(/[.]vo?$/)) {
-                    let base = fn.replace(/[.]vo?$/, ''),
-                        fp = this.fsif.path.join(physical, fn)
-                    yield {logical: logical.concat([base]),
-                           physical: fp, pkg};
+        for (let {volume, logical, physical, pkg} of this.path) {
+            for (let fn of volume.fs.readdirSync(physical)) {
+                if (fn.match(/[.](vo?|cma)$/)) {
+                    let base = fn.replace(/[.](vo?|cma)$/, ''),
+                        fp = volume.path.join(physical, fn)
+                    yield { volume,
+                            logical: logical.concat([base]),
+                            physical: fp,
+                            pkg };
                 }
             }
         }
+    }
+
+    *modulesOf(pkg: string=undefined) {
+        for (let mod of this.modules())
+            if (mod.pkg === pkg) yield mod;
     }
 
     searchModule(prefix: string | string[], name: string | string[], exact=false) {
@@ -61,8 +146,20 @@ class SearchPath {
 
 }
 
-type SearchPathElement = {logical: string[], physical: string, pkg?: string};
+type SearchPathAddParameters = {
+    volume?: FSInterface
+    logical: string[] | string
+    physical: string
+    pkg?: string
+};
+
+type SearchPathElement = {
+    volume: FSInterface
+    logical: string[]
+    physical: string
+    pkg?: string
+};
 
 
 
-export { SearchPath, SearchPathElement }
+export { CoqProject, SearchPath, SearchPathElement }
