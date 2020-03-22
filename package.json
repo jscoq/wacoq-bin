@@ -7,6 +7,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/jquery": "^3.3.33",
+    "@types/jszip": "^3.1.7",
     "cssnano": "^4.1.10",
     "typescript": "^3.8.3"
   },

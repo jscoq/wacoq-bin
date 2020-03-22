@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events';
-import { PackageManager, Resource, DownloadProgress } from 'basin-shell/src/package-mgr';
+import JSZip from 'jszip';
+import { DEFLATE } from 'jszip/lib/compressions'
+import { inflateRaw } from 'pako';
 
 import { OCamlExecutable } from './backend/ocaml_exec';
 
@@ -8,7 +10,6 @@ import { OCamlExecutable } from './backend/ocaml_exec';
 class IcoqPod extends EventEmitter {
 
     core: OCamlExecutable
-    pm: PackageManager
 
     binDir: string
 
@@ -23,8 +24,6 @@ class IcoqPod extends EventEmitter {
 
         var utf8 = new TextDecoder();
         this.core.on('stream:out', ev => console.log(utf8.decode(ev.data)));
-
-        this.pm = new PackageManager(this.core.wasmFs.volume);
     }
 
     get fs() { return this.core.wasmFs.fs; }
@@ -50,20 +49,35 @@ class IcoqPod extends EventEmitter {
 
     async loadPackages(uris: string | string[], refresh: boolean = true) {
         if (typeof uris == 'string') uris = [uris];
-
-        var blobs = await Promise.all(uris.map(async uri => {
-            var r = await new Resource(this._pkgUri(uri))
-                              .prefetch(p => this._progress(uri, p));
-            r.uri = uri; return r;
-         }));
         
-        for (let b of blobs) {
-            await this.pm.install({"/lib/": b});
-            this._progress(b.uri, undefined, true);
-        }
+        await Promise.all(uris.map(async uri => {
+            await this.unzip(uri, '/lib');
+            this._progress(uri, undefined, true);
+        }));
 
         if (refresh)
             this.command(['RefreshLoadPath']);
+    }
+
+    async unzip(zip: string | JSZip, dir: string) {
+        if (typeof zip == 'string')
+            zip = await JSZip.loadAsync(await this._fetch(zip));
+
+        let yc = 0;
+        for (let entry of zip.filter((_, e) => !e.dir)) {
+            this.putFile(`${dir}/${entry.name}`, this._inflateFast(entry));
+            if (!((++yc) & 0xf)) await _yield();
+        }
+    }
+
+    async loadSources(uri: string, dirpath: string) {
+        var subdir = dirpath.replace(/[.]|(?<=[^/])$/g, '/');
+        this.unzip(uri, `/src/${subdir}`);
+    }
+
+    _fetch(uri: string) {
+        return fetchWithProgress(this._pkgUri(uri),
+                    p => this._progress(uri, p));
     }
 
     _pkgUri(uri: string) {
@@ -75,11 +89,11 @@ class IcoqPod extends EventEmitter {
         this.emit('progress', {uri, download, done});
     }
 
-    async loadSources(uri: string, dirpath: string) {
-        var subdir = dirpath.replace(/[.]|(?<=[^/])$/g, '/');
-        await this.pm.install({
-            [`/src/${subdir}`]: new Resource(uri)
-        });
+    _inflateFast(entry: any) {
+        if (entry._data.compression == DEFLATE)
+            return inflateRaw(entry._data.compressedContent);
+        else /* STORE */
+            return entry._data.compressedContent;
     }
 
     putFile(filename: string, content: Uint8Array | string) {
@@ -103,7 +117,7 @@ class IcoqPod extends EventEmitter {
     }
     
     answer(msgs: any[][]) {
-        for (let msg of msgs) postMessage(msg);
+        for (let msg of msgs) this.emit('message', msg);
     }
     
     _answer(ptr: number) {
@@ -128,6 +142,26 @@ class IcoqPod extends EventEmitter {
 }
 
 
+async function fetchWithProgress(uri: string, progress: (p: any) => void) {
+    var response = await fetch(uri),
+        total = +response.headers.get('Content-Length'),
+        r = response.body.getReader(), chunks = [], downloaded = 0;
+    for(;;) {
+        var {value, done} = await r.read();
+        if (done) break;
+        chunks.push(value);
+        downloaded += value.length;
+        progress({total, downloaded})
+    }
+    return new Blob(chunks);
+}    
+
+function _yield() { return new Promise(resolve => setTimeout(resolve, 0)); }
+
+
+type DownloadProgress = { total: number, downloaded: number };
+
+
 function postMessage(msg) {
     (<any>self).postMessage(msg);
 }
@@ -137,6 +171,7 @@ async function main() {
     var icoq = new IcoqPod();
 
     postMessage(['Starting']);
+    icoq.on('message', postMessage);
     icoq.on('progress', ev => postMessage(['LibProgress', ev]));
 
     addEventListener('message', (msg) => {
