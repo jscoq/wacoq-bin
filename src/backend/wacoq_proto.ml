@@ -66,6 +66,7 @@ type wacoq_answer =
   | BackTo    of Stateid.t
   | GoalInfo  of Stateid.t * Goals.t option
   | Feedback  of Feedback.feedback
+  | Pending   of Stateid.t option * string option * string list
 
   | Loaded    of string * Stateid.t
   | Compiled  of string

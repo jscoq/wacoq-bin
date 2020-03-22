@@ -122,6 +122,12 @@ module Interpreter = struct
   let refresh_load_path () =
     List.iter Loadpath.add_coq_path default_load_path
 
+  let requires ast =
+    match ast.CAst.v with
+    | Vernacexpr.{ expr = VernacRequire (prefix, _export, module_refs); _ } ->
+      Some ((prefix, module_refs))
+    | _ -> None
+    
   let cleanup () =
     match !error with
     | Some sid -> error := None ; ignore @@ cancel ~sid
@@ -173,10 +179,21 @@ let info_string () =
   info1 ^ info2
 
 
-let jscoq_execute = function
+let add_or_pend ?from ?newid stm ~resolve =
+  let ast = Interpreter.parse stm in
+  let req = if resolve then None else Interpreter.requires ast in
+  match req with
+  | Some (prefix, module_refs) ->
+    let soq = Libnames.string_of_qualid in
+    [Pending (newid, Option.map soq prefix, List.map soq module_refs)]
+  | _ ->
+    [Added (Interpreter.add_ast ?from ?newid ast, ast.CAst.loc)]
+
+
+let wacoq_execute = function
   | Init params ->             [Ready (Interpreter.init params)]
-  | Add (from, newid, stm, _) ->  
-                               [Added (Interpreter.add ?from ?newid stm, None)]
+  | Add (from, newid, stm, resolve) ->  
+                               add_or_pend ?from ?newid stm ~resolve
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
   | Goals sid ->               [GoalInfo (sid, Interpreter.get_goals ~sid)]
@@ -202,7 +219,7 @@ let handleRequest json_str =
     let cmd = deserialize json_str                     in
     match cmd with
       | Result.Error e -> [JsonExn e]
-      | Result.Ok cmd -> jscoq_execute cmd
+      | Result.Ok cmd -> wacoq_execute cmd
   with exn ->
     let (e, info) = CErrors.push exn                   in
     [CoqExn (Loc.get_loc info, Stateid.get info, CErrors.iprint (e, info))]

@@ -61,13 +61,14 @@ class InteractiveConsole extends EventEmitter {
             }
         }
         else if (props.download && p) {
+            var span = p.find('span.progress');
+            if (span.length == 0)
+                p.append(span = $('<span>').addClass('progress'));
             if (props.download.total) {
-                var ratio = props.download.downloaded / props.download.total,
-                    span = p.find('span.percent');
-                if (span.length == 0)
-                    p.append(span = $('<span>').addClass('percent'));
+                var ratio = props.download.downloaded / props.download.total;
                 span.text(`${(ratio * 100).toFixed(1)}%`);
             }
+            else span.text(props.download.downloaded);
         }
         else {
             this.progress[desc] = this.write(msg || `${desc}...`);

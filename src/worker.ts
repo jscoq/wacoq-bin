@@ -1,10 +1,11 @@
-import { PackageManager, Resource } from 'basin-shell/src/package-mgr';
+import { EventEmitter } from 'events';
+import { PackageManager, Resource, DownloadProgress } from 'basin-shell/src/package-mgr';
 
 import { OCamlExecutable } from './backend/ocaml_exec';
 
 
 
-class IcoqPod {
+class IcoqPod extends EventEmitter {
 
     core: OCamlExecutable
     pm: PackageManager
@@ -12,6 +13,7 @@ class IcoqPod {
     binDir: string
 
     constructor(binDir?: string) {
+        super();
         binDir = binDir || (process.env.NODE_NOW ? './bin' : '../bin');
         this.binDir = binDir;
 
@@ -27,8 +29,7 @@ class IcoqPod {
 
     get fs() { return this.core.wasmFs.fs; }
 
-    async main() {
-        this.fs.mkdirpSync('/lib');
+    async boot() {
         await this.upload(`${this.binDir}/icoq.bc`, '/lib/icoq.bc');
     
         this._preloadStub();
@@ -40,19 +41,38 @@ class IcoqPod {
 
     async upload(fromUri: string | RequestInfo, toPath: string) {
         var content = await (await fetch(fromUri)).arrayBuffer();
-        this.fs.writeFileSync(toPath, new Uint8Array(content));
+        this.putFile(toPath, new Uint8Array(content));
     }
 
-    async loadPackage(uri: string, refresh: boolean=true) {
-        if (uri[0] == '+')
-            uri = `${this.binDir}/coq/${uri.substring(1)}.coq-pkg`;
+    loadPackage(uri: string, refresh: boolean = true) {
+        return this.loadPackages([uri], refresh);
+    }
 
-        await this.pm.install({
-            "/lib/": new Resource(uri)
-        });
-    
+    async loadPackages(uris: string | string[], refresh: boolean = true) {
+        if (typeof uris == 'string') uris = [uris];
+
+        var blobs = await Promise.all(uris.map(async uri => {
+            var r = await new Resource(this._pkgUri(uri))
+                              .prefetch(p => this._progress(uri, p));
+            r.uri = uri; return r;
+         }));
+        
+        for (let b of blobs) {
+            await this.pm.install({"/lib/": b});
+            this._progress(b.uri, undefined, true);
+        }
+
         if (refresh)
             this.command(['RefreshLoadPath']);
+    }
+
+    _pkgUri(uri: string) {
+        return (uri[0] == '+') ?
+            `${this.binDir}/coq/${uri.substring(1)}.coq-pkg` : uri;
+    }
+
+    _progress(uri: string, download: DownloadProgress, done = false) {
+        this.emit('progress', {uri, download, done});
     }
 
     async loadSources(uri: string, dirpath: string) {
@@ -70,7 +90,7 @@ class IcoqPod {
 
     command(cmd: any[]) {
         switch (cmd[0]) {
-        case 'LoadPkg':   this.loadPackage(cmd[1]);                return;
+        case 'LoadPkg':   this.loadPackages(cmd[1]);               return;
         case 'Put':       this.putFile(cmd[1], cmd[2]);            return;
         }
 
@@ -117,14 +137,14 @@ async function main() {
     var icoq = new IcoqPod();
 
     postMessage(['Starting']);
-    icoq.pm.on('progress', ev => postMessage(['LibProgress', ev]));
+    icoq.on('progress', ev => postMessage(['LibProgress', ev]));
 
     addEventListener('message', (msg) => {
         console.log(msg.data);
         icoq.command(msg.data);
     });
 
-    await icoq.main();
+    await icoq.boot();
 
     postMessage(['Boot']);
 

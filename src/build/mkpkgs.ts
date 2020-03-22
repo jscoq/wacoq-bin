@@ -4,7 +4,7 @@
 // todo: merge this with src/cli.ts
 
 import fs from 'fs';
-import { CoqProject } from './project';
+import { CoqProject, SearchPath } from './project';
 
 
 
@@ -21,12 +21,19 @@ async function main() {
     }
     const progress = process.stdout.isTTY ? progressTTY : progressLog;
 
+    var projs = {}, allsp = new SearchPath();
     for (let pkg in pkgs) {
-        let p = new CoqProject(pkg).fromJson(pkgs[pkg], coqRoot),
+        var proj = projs[pkg] = new CoqProject(pkg).fromJson(pkgs[pkg], coqRoot);
+        allsp.path.push(...proj.searchPath.path);
+        proj.searchPath = allsp;
+    }
+
+    for (let pkg in projs) {
+        let p = projs[pkg],
             save_as = `bin/coq/${pkg}.coq-pkg`;
 
         progress(`[${pkg}] `, false);
-        fs.writeFileSync(pkg + '.json', JSON.stringify(p.createManifest()));
+        fs.writeFileSync(`bin/coq/${pkg}.json`, JSON.stringify(p.createManifest()));
 
         await new Promise(async resolve => 
         (await p.toZip()).generateNodeStream({compression: 'DEFLATE'})
@@ -34,6 +41,7 @@ async function main() {
             .on('finish', () => { progress(`wrote '${save_as}'.`); resolve(); }));
     }
 }
+
 
 
 main();

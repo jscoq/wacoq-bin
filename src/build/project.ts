@@ -44,9 +44,18 @@ class CoqProject {
             if (mod.physical.endsWith(ext)) yield mod;
     }
     
+    listModules() {
+        let s = new Set(),
+            key = (mod: SearchPathElement) => mod.logical.join('.');
+        for (let mod of this.searchPath.modulesOf(this.name))
+            s.add(key(mod));
+        return s;
+    }
+
     createManifest() {
         return {
             name: this.name,
+            modules: [...this.listModules()],
             deps: this.computeDeps().depsToJson()
         };
     }
