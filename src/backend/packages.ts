@@ -7,7 +7,7 @@ class PackageIndex {
     loaded: string[]
     futures: {[name: string]: Future<any>}
 
-    moduleIndex: Map<string, {name: string, deps: string[]}>
+    moduleIndex: Map<string, {name: string, modules: any[]}>
 
     worker: Worker
 
@@ -31,14 +31,17 @@ class PackageIndex {
         return Promise.all(this.directory.map(async pkg => {
             var manifest = await (await fetch(`../bin/coq/${pkg}.json`)).json();
             this.pkgs[pkg] = manifest;
-            for (let mod of manifest.modules || [])
+            for (let mod in manifest.modules || {})
                 this.moduleIndex.set(mod, manifest);
         }));
     }
 
     alldeps(mods: string[]) {
-        return closure(new Set(mods),
-            mod => (this.moduleIndex.get(mod).deps || {})[mod] || []);
+        return closure(new Set(mods), mod => {
+            let pkg = this.moduleIndex.get(mod),
+                o = (pkg && pkg.modules || {})[mod];
+            return (o && o.deps) || [];
+        });
     }
 
     async loadModuleDeps(mods: string[]) {

@@ -8,11 +8,13 @@ class CoqProject {
 
     volume: FSInterface
     name: string
+    deps: string[]
     searchPath: SearchPath
 
     constructor(name?: string, volume: FSInterface = fsif_native) {
         this.volume = volume;
         this.name = name;
+        this.deps = [];
         this.searchPath = new SearchPath(volume);
     }
 
@@ -49,11 +51,11 @@ class CoqProject {
     }
 
     createManifest() {
-        return {
-            name: this.name,
-            modules: [...this.listModules()],
-            deps: this.computeDeps().depsToJson()
-        };
+        var mdeps = this.computeDeps().depsToJson(),
+            modules:any = {};
+        for (let k of this.listModules())
+            modules[k] = {deps: mdeps[k]};
+        return {name: this.name, deps: this.deps, modules};
     }
 
     async toZip() {
@@ -145,7 +147,7 @@ class SearchPath {
     }
 
     _listNames(modules: Generator<SearchPathElement>) {
-        let s = new Set(),
+        let s = new Set<string>(),
             key = (mod: SearchPathElement) => mod.logical.join('.');
         for (let mod of modules)
             s.add(key(mod));
@@ -169,7 +171,7 @@ class SearchPath {
 
     createIndex() {
         this.moduleIndex = new ModuleIndex();
-        for (let mod of this.modulesOf())
+        for (let mod of this.modules())
             this.moduleIndex.add(mod);
     }
 
