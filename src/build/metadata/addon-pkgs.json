@@ -1,0 +1,8 @@
+{
+    "mathcomp": {
+        "mathcomp": {
+            "prefix": "",
+            "dirpaths": ["mathcomp"]
+        }
+    }
+}

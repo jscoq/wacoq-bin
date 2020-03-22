@@ -11,7 +11,9 @@ import { CoqProject, SearchPath } from './project';
 async function main() {
 
     var coqRoot = '_build/wacoq/vendor/coq',
-        pkgs = require('./coq-pkgs.json');
+        coqPkgs = require('./metadata/coq-pkgs.json'),
+        addonRoot = 'vendor',
+        addonPkgs = require('./metadata/addon-pkgs.json');
 
     function progressTTY(msg: string, done: boolean = true) {
         process.stdout.write('\r' + msg + (done ? '\n' : ''));
@@ -22,11 +24,16 @@ async function main() {
     const progress = process.stdout.isTTY ? progressTTY : progressLog;
 
     var projs = {}, allsp = new SearchPath();
-    for (let pkg in pkgs) {
-        var proj = projs[pkg] = new CoqProject(pkg).fromJson(pkgs[pkg], coqRoot);
-        allsp.path.push(...proj.searchPath.path);
-        proj.searchPath = allsp;
+
+    function createProjects(pkgs: any, baseDir: string) {
+        for (let pkg in pkgs) {
+            var proj = projs[pkg] = new CoqProject(pkg).fromJson(pkgs[pkg], baseDir);
+            allsp.path.push(...proj.searchPath.path);
+            proj.searchPath = allsp;
+        }
     }
+    createProjects(coqPkgs, coqRoot);
+    createProjects(addonPkgs, addonRoot);
 
     for (let pkg in projs) {
         let p = projs[pkg],

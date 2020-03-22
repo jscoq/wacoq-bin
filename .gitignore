@@ -4,6 +4,7 @@ _build
 node_modules
 .merlin
 /vendor/coq
+/vendor/mathcomp
 /bin
 /dist
 /public
