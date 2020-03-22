@@ -94,7 +94,7 @@ class IcoqPod extends EventEmitter {
         case 'Put':       this.putFile(cmd[1], cmd[2]);            return;
         }
 
-        const wacoq_post = this.core.callbacks.wacoq_post;
+        const wacoq_post = this.core.callbacks && this.core.callbacks.wacoq_post;
         if (!wacoq_post) return;
     
         var json = (typeof cmd === 'string') ? cmd : JSON.stringify(cmd),
