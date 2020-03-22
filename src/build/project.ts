@@ -45,11 +45,7 @@ class CoqProject {
     }
     
     listModules() {
-        let s = new Set(),
-            key = (mod: SearchPathElement) => mod.logical.join('.');
-        for (let mod of this.searchPath.modulesOf(this.name))
-            s.add(key(mod));
-        return s;
+        return this.searchPath.listModulesOf(this.name);
     }
 
     createManifest() {
@@ -80,6 +76,8 @@ class SearchPath {
 
     volume: FSInterface
     path: SearchPathElement[]
+
+    moduleIndex: ModuleIndex
 
     constructor(volume: FSInterface = fsif_native) {
         this.volume = volume;
@@ -138,8 +136,24 @@ class SearchPath {
             if (mod.pkg === pkg) yield mod;
     }
 
-    searchModule(prefix: string | string[], name: string | string[], exact=false) {
-        var lprefix = this.toDirPath(prefix),
+    listModules() {
+        return this._listNames(this.modules());
+    }
+
+    listModulesOf(pkg: string=undefined) {
+        return this._listNames(this.modulesOf(pkg));
+    }
+
+    _listNames(modules: Generator<SearchPathElement>) {
+        let s = new Set(),
+            key = (mod: SearchPathElement) => mod.logical.join('.');
+        for (let mod of modules)
+            s.add(key(mod));
+        return s;
+    }
+
+    *findModules(prefix: string | string[], name: string | string[], exact=false) {
+        var lprefix = this.toDirPath(prefix) || [],
             lsuffix = this.toDirPath(name);
 
         let startsWith = (arr, prefix) => arreq(arr.slice(0, prefix.length), prefix);
@@ -150,7 +164,13 @@ class SearchPath {
                                       endsWith(name, lsuffix);
 
         for (let mod of this.modules())
-            if (matches(mod.logical)) return mod;
+            if (matches(mod.logical)) yield mod;
+    }
+
+    createIndex() {
+        this.moduleIndex = new ModuleIndex();
+        for (let mod of this.modulesOf())
+            this.moduleIndex.add(mod);
     }
 
 }
@@ -170,5 +190,32 @@ type SearchPathElement = {
 };
 
 
+/**
+ * @todo there is some duplication with backend's PackageIndex.
+ */
+class ModuleIndex {
 
-export { CoqProject, SearchPath, SearchPathElement }
+    index: Map<string, SearchPathElement>
+
+    constructor() {
+        this.index = new Map();
+    }
+
+    add(mod: SearchPathElement) {
+        let key = (mod: SearchPathElement) => mod.logical.join('.');
+        this.index.set(key(mod), mod);
+    }
+
+    *findModules(prefix: string, suffix: string) {
+        prefix = prefix ? prefix + '.' : '';
+        var dotsuffix = '.' + suffix;
+        for (let k of this.index.keys()) {
+            if (k.startsWith(prefix) && (k == suffix || k.endsWith(dotsuffix)))
+                yield this.index.get(k);
+        }
+    }
+}
+
+
+
+export { CoqProject, SearchPath, SearchPathElement, ModuleIndex }

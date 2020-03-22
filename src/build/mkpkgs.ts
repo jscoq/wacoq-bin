@@ -35,6 +35,8 @@ async function main() {
     createProjects(coqPkgs, coqRoot);
     createProjects(addonPkgs, addonRoot);
 
+    allsp.createIndex();
+
     for (let pkg in projs) {
         let p = projs[pkg],
             save_as = `bin/coq/${pkg}.coq-pkg`;

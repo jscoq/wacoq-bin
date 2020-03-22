@@ -121,12 +121,17 @@ class CoqDep {
                     lmodnames = modnames.split(/\s+/);
 
                 for (let modname of lmodnames) {
-                    let lu = this.searchPath.searchModule(prefix || [], modname);
-                    if (lu)
-                        yield lu;
+                    for (let mod of this._resolve(prefix, modname))
+                        yield mod;
                 }
             }
         }
+    }
+
+    _resolve(prefix: string, suffix: string) {
+        return (this.searchPath.moduleIndex)
+             ? this.searchPath.moduleIndex.findModules(prefix, suffix)
+             : this.searchPath.findModules(prefix, suffix);
     }
 
 }
