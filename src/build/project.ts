@@ -33,6 +33,12 @@ class CoqProject {
         return this;
     }
 
+    fromVolume(volume = this.volume) {
+        this.searchPath.addRecursive({volume,
+                    physical: '', logical: '', pkg: this.name});
+        return this;
+    }
+
     computeDeps() {
         var coqdep = new CoqDep();
         coqdep.searchPath = this.searchPath;
@@ -71,6 +77,20 @@ class CoqProject {
         return z;
     }
 
+    toPackage(baseDir: string) : Promise<{pkgfile: string, jsonfile: string}> {
+        var basename = this.volume.path.join(baseDir, this.name),
+            pkgfile = `${basename}.coq-pkg`, jsonfile = `${basename}.json`;
+
+        fs.writeFileSync(jsonfile, JSON.stringify(this.createManifest()));
+
+        return new Promise(async resolve => {
+            var z = await this.toZip();
+            z.generateNodeStream({compression: 'DEFLATE'})
+                .pipe(fs.createWriteStream(pkgfile))
+                .on('finish', () => resolve({pkgfile, jsonfile}));
+        });
+    }
+
 }
 
 
@@ -104,6 +124,11 @@ class SearchPath {
                                     logical: logical.concat([subdir]),
                                     pkg });
         }
+    }
+
+    addFrom(other: SearchPath | CoqProject) {
+        if (other instanceof CoqProject) other = other.searchPath;
+        this.path.push(...other.path);
     }
 
     toLogical(filename: string) {
@@ -219,5 +244,53 @@ class ModuleIndex {
 }
 
 
+import fs from 'fs';
+import path from 'path';
+import JSZip from 'jszip';
 
-export { CoqProject, SearchPath, SearchPathElement, ModuleIndex }
+class ZipVolume implements FSInterface {
+    fs: typeof fs
+    path: typeof path
+    zip: JSZip
+
+    _files: string[]
+
+    constructor(zip: JSZip) {
+        this.fs = <any>this;
+        this.path = fsif_native.path;
+        this.zip = zip;
+
+        this._files = [];
+        this.zip.forEach((fn: string) => this._files.push(fn));
+    }
+
+    readdirSync(dir: string) {
+        let d = [];
+        if (dir !== '' && !dir.endsWith('/')) dir = dir + '/';
+        for (let fn of this._files) {
+            if (fn.startsWith(dir)) {
+                var steps = fn.substring(dir.length).split('/').filter(x => x);
+                if (steps.length == 1)
+                    d.push(steps[0]);
+            }
+        }
+        return d;
+    }
+
+    statSync(fp: string) {
+        var entry = this.zip.files[fp] || this.zip.files[fp + '/'];
+        return {
+            isDirectory() { return entry && entry.dir; }
+        }
+    }
+
+    static async fromFile(zipFilename: string) {
+        const JSZip = await import('jszip');
+        return new ZipVolume(
+            await JSZip.loadAsync(fs.readFileSync(zipFilename)));
+    }
+}
+
+
+
+export { CoqProject, SearchPath, SearchPathElement, ModuleIndex, ZipVolume }

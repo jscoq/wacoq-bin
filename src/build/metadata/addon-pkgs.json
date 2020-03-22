@@ -1,8 +1,11 @@
 {
-    "mathcomp": {
+    "rootdir": "vendor",
+    "projects": {
         "mathcomp": {
-            "prefix": "",
-            "dirpaths": ["mathcomp"]
+            "mathcomp": {
+                "prefix": "",
+                "dirpaths": ["mathcomp"]
+            }
         }
     }
 }

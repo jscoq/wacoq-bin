@@ -4,16 +4,37 @@
 // todo: merge this with src/cli.ts
 
 import fs from 'fs';
-import { CoqProject, SearchPath } from './project';
+import path from 'path';
+import { CoqProject, SearchPath, ZipVolume } from './project';
 
 
+
+class Workspace {
+    projs: {[name: string]: CoqProject} = {}
+    searchPath = new SearchPath()
+
+    async loadDeps(pkgs: string[], baseDir = 'bin/coq') {
+        for (let pkg of pkgs) {
+            var proj = new CoqProject(pkg).fromVolume(
+                       await ZipVolume.fromFile(`${baseDir}/${pkg}.coq-pkg`));
+            this.searchPath.addFrom(proj);
+        }
+    }
+
+    openProjects(pkgs: any, baseDir: string) {
+        for (let pkg in pkgs) {
+            var proj = new CoqProject(pkg).fromJson(pkgs[pkg], baseDir);
+            this.projs[pkg] = proj;
+            this.searchPath.addFrom(proj);
+            proj.searchPath = this.searchPath;
+        }
+    }
+}
 
 async function main() {
 
-    var coqRoot = '_build/wacoq/vendor/coq',
-        coqPkgs = require('./metadata/coq-pkgs.json'),
-        addonRoot = 'vendor',
-        addonPkgs = require('./metadata/addon-pkgs.json');
+    var coq = require('./metadata/coq-pkgs.json'),
+        addons = require('./metadata/addon-pkgs.json');
 
     function progressTTY(msg: string, done: boolean = true) {
         process.stdout.write('\r' + msg + (done ? '\n' : ''));
@@ -23,31 +44,27 @@ async function main() {
     }
     const progress = process.stdout.isTTY ? progressTTY : progressLog;
 
-    var projs = {}, allsp = new SearchPath();
+    var workspace = new Workspace();
 
-    function createProjects(pkgs: any, baseDir: string) {
-        for (let pkg in pkgs) {
-            var proj = projs[pkg] = new CoqProject(pkg).fromJson(pkgs[pkg], baseDir);
-            allsp.path.push(...proj.searchPath.path);
-            proj.searchPath = allsp;
-        }
+    var opts = require('commander')
+        .version('0.11.0', '-v, --version')
+        .option('--boot',         'build initial Coq packages')
+        .parse(process.argv);
+
+    if (opts.boot) {
+        workspace.openProjects(coq.projects, coq.rootdir);
     }
-    createProjects(coqPkgs, coqRoot);
-    createProjects(addonPkgs, addonRoot);
+    else {
+        await workspace.loadDeps(Object.keys(coq.projects));
+        workspace.openProjects(addons.projects, addons.rootdir);
+    }
 
-    allsp.createIndex();
+    workspace.searchPath.createIndex();
 
-    for (let pkg in projs) {
-        let p = projs[pkg],
-            save_as = `bin/coq/${pkg}.coq-pkg`;
-
+    for (let pkg in workspace.projs) {
         progress(`[${pkg}] `, false);
-        fs.writeFileSync(`bin/coq/${pkg}.json`, JSON.stringify(p.createManifest()));
-
-        await new Promise(async resolve => 
-        (await p.toZip()).generateNodeStream({compression: 'DEFLATE'})
-            .pipe(fs.createWriteStream(save_as))
-            .on('finish', () => { progress(`wrote '${save_as}'.`); resolve(); }));
+        var {pkgfile} = await workspace.projs[pkg].toPackage('bin/coq');
+        progress(`wrote ${pkgfile}.`, true);
     }
 }
 
