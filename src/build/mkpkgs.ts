@@ -23,10 +23,11 @@ class Workspace {
         }
     }
 
-    async loadDeps(pkgs: string[], baseDir = 'bin/coq') {
+    async loadDeps(pkgs: string[], baseDir = '') {
         for (let pkg of pkgs) {
+            if (!pkg.match(/[.][^./]+$/)) pkg += '.coq-pkg';
             var proj = new CoqProject(pkg).fromVolume(
-                       await ZipVolume.fromFile(`${baseDir}/${pkg}.coq-pkg`));
+                       await ZipVolume.fromFile(path.join(baseDir, pkg)));
             this.searchPath.addFrom(proj);
         }
     }
@@ -45,10 +46,10 @@ class Workspace {
     }
 
     openProjectDirect(nameOrPackage: string,
-                      baseDir: string, dirPaths: string[]) {
+                      baseDir: string, prefix: string, dirPaths: string[]) {
         var name = path.basename(nameOrPackage).replace(/[.][^.]*$/, '');
         let proj = new CoqProject(name).fromJson({
-            "": { 'dirpaths': dirPaths }
+            "": { prefix, 'dirpaths': dirPaths }
         }, baseDir);
         this.addProject(proj);
     }
@@ -69,13 +70,18 @@ async function main() {
 
     var workspace = new Workspace();
 
+    var refs: string[] = [];
+
     var opts = require('commander')
         .version('0.11.0', '-v, --version')
         .option('--workspace <w.json>',       'build projects from specified workspace')
         .option('--project <dir>',            'base directory for finding `.v` and `.vo` files')
+        .option('--top <name>',               'logical name of toplevel directory')
         .option('--dirpaths <a.b.c>',         'logical paths containing modules (comma separated)')
         .option('--package <f.coq-pkg>',      'create a package (default extension is `.coq-pkg`)')
+        .option('--ref <f.coq-pkg>',          'consider `f.coq-pkg` for module dependencies')
         .option('--boot',                     'build initial Coq packages')
+        .on('option:ref', (fn: string) => refs.push(fn))
         .parse(process.argv);
 
     var pkgdir = 'bin/coq', outdir = pkgdir;
@@ -83,14 +89,14 @@ async function main() {
     if (opts.boot) {
         workspace.openProjects(coq.projects, coq.rootdir);
     }
-    else if (opts.workspace) {
-        await workspace.loadDeps(Object.keys(coq.projects), pkgdir);
-        workspace.open(opts.workspace);
-    }
     else {
-        await workspace.loadDeps(Object.keys(coq.projects));
-        workspace.openProjectDirect(opts.package, opts.project,
-                                    opts.dirpaths.split(/[, ]/));
+        await workspace.loadDeps(Object.keys(coq.projects), pkgdir);
+        await workspace.loadDeps(refs);
+        if (opts.workspace)
+            workspace.open(opts.workspace);
+        else
+            workspace.openProjectDirect(opts.package, opts.project, opts.top,
+                                        opts.dirpaths.split(/[, ]/));
     }
 
     workspace.searchPath.createIndex();

@@ -32,7 +32,7 @@ class InteractiveConsole extends EventEmitter {
             var side = $(ev.target).closest('.side-note');
             $(ev.target).remove();
             if (side.find('a').length == 0) side.remove();
-            this.emit('load-pkg', {uri: $(ev.target).attr('href')});
+            this.emit('load-pkg', {uri: $(ev.target).attr('data-uri')});
         });
     }
 

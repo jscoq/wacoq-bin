@@ -79,7 +79,8 @@ function main() {
     consl.on('load-pkg', (ev) => worker.postMessage(['LoadPkg', ev.uri]));
 
     var pi = new PackageIndex().attach(worker);
-    pi.populate();
+    pi.populate(['init', 'coq-base', 'coq-collections', 'coq-arith', 'coq-reals', 'mathcomp'], '../bin/coq');
+    //pi.loadInfo(['/scratch/fcsl-pcm.json']);
 
     Object.assign(window, {worker, pi});
 }

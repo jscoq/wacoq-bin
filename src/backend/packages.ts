@@ -2,12 +2,11 @@
 
 class PackageIndex {
 
-    pkgs: {[name: string]: any}
-    directory: string[]
+    pkgs: {[name: string]: PackageManifest}
     loaded: string[]
     futures: {[name: string]: Future<any>}
 
-    moduleIndex: Map<string, {name: string, modules: any[]}>
+    moduleIndex: Map<string, PackageManifest>
 
     worker: Worker
 
@@ -16,9 +15,6 @@ class PackageIndex {
         this.loaded = [];
         this.futures = {};
         this.moduleIndex = new Map();
-
-        this.directory = ['init', 'coq-base', 'coq-collections', 'coq-arith', 'coq-reals'];
-
     }
 
     attach(worker: Worker) {
@@ -27,29 +23,24 @@ class PackageIndex {
         return this;
     }
 
-    populate() {
-        return Promise.all(this.directory.map(async pkg => {
-            var manifest = await (await fetch(`../bin/coq/${pkg}.json`)).json();
-            this.pkgs[pkg] = manifest;
-            for (let mod in manifest.modules || {})
-                this.moduleIndex.set(mod, manifest);
+    add(pkg: PackageManifest) {
+        this.pkgs[pkg.name] = pkg;
+        for (let mod in pkg.modules || {})
+            this.moduleIndex.set(mod, pkg);
+    }
+
+    populate(pkgs: string[], baseDir: string) {
+        var uris = pkgs.map(pkg => `${baseDir}/${pkg}.json`);
+        return this.loadInfo(uris);
+    }
+    
+    loadInfo(uris: string[]) {
+        return Promise.all(uris.map(async uri => {
+            var manifest = await (await fetch(uri)).json();
+            if (!manifest.archive)
+                manifest.archive = uri.replace(/[.]json$/, '.coq-pkg');
+            this.add(manifest);
         }));
-    }
-
-    alldeps(mods: string[]) {
-        return closure(new Set(mods), mod => {
-            let pkg = this.moduleIndex.get(mod),
-                o = (pkg && pkg.modules || {})[mod];
-            return (o && o.deps) || [];
-        });
-    }
-
-    async loadModuleDeps(mods: string[]) {
-        var pdeps = new Set<string>();
-        for (let m of this.alldeps(mods))
-            pdeps.add(this.moduleIndex.get(m).name);
-        // consistent order
-        return this.loadPkgs(this.directory.filter(x => pdeps.has(x)));
     }
 
     loadPkgs(pkgs: string[]) {
@@ -63,8 +54,26 @@ class PackageIndex {
             }
             return this.futures[pkg].promise;
         });
-        this.worker.postMessage(['LoadPkg', issue.map(pkg => `+${pkg}`)]);
+        var uris = issue.map(pkg => this.pkgs[pkg].archive || `+${pkg}`);
+        this.worker.postMessage(['LoadPkg', uris]);
         return Promise.all(promises);
+    }
+
+
+    computeModuleDeps(mods: string[]) {
+        return closure(new Set(mods), mod => {
+            let pkg = this.moduleIndex.get(mod),
+                o = (pkg && pkg.modules || {})[mod];
+            return (o && o.deps) || [];
+        });
+    }
+
+    async loadModuleDeps(mods: string[]) {
+        var pdeps = new Set<string>();
+        for (let m of this.computeModuleDeps(mods))
+            pdeps.add(this.moduleIndex.get(m).name);
+        // consistent order
+        return this.loadPkgs([...pdeps]);
     }
 
     findModule(prefix: string, suffix: string) {
@@ -93,6 +102,8 @@ class PackageIndex {
     }
 
 }
+
+type PackageManifest = {name: string, deps?: string[], modules: any[], archive?: string};
 
 
 class Future<T> {

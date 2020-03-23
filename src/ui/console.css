@@ -19,6 +19,11 @@
     text-align: right;
 }
 
+#console p.side-note a {
+    cursor: pointer;
+    color: #77f;
+}
+
 #console span.percent {
     margin-left: 1em;
     color: #999;
