@@ -1,7 +1,8 @@
 import { FSInterface, fsif_native } from './fsif';
 import { CoqDep } from './coqdep';
 import arreq from 'array-equal';
-
+import JSZip from 'jszip';
+        
 
 
 class CoqProject {
@@ -18,10 +19,10 @@ class CoqProject {
         this.searchPath = new SearchPath(volume);
     }
 
-    fromJson(json: {[root: string]: {prefix: string, dirpaths: string[]}},
+    fromJson(json: {[root: string]: {prefix?: string, dirpaths: string[]}},
              baseDir: string = '', volume: FSInterface = this.volume) {
         for (let root in json) {
-            var prefix = this.searchPath.toDirPath(json[root].prefix);
+            var prefix = this.searchPath.toDirPath(json[root].prefix) || [];
             for (let sub of json[root].dirpaths) {
                 var dirpath = this.searchPath.toDirPath(sub),
                     physical = volume.path.join(baseDir, root, ...dirpath),
@@ -65,7 +66,7 @@ class CoqProject {
     }
 
     async toZip() {
-        const JSZip = await import('jszip'),
+        const JSZip = <any>await import('jszip') as JSZip,
               z = new JSZip();
 
         for (let ext of ['.vo', '.cma']) {
@@ -77,9 +78,11 @@ class CoqProject {
         return z;
     }
 
-    toPackage(baseDir: string) : Promise<{pkgfile: string, jsonfile: string}> {
-        var basename = this.volume.path.join(baseDir, this.name),
-            pkgfile = `${basename}.coq-pkg`, jsonfile = `${basename}.json`;
+    toPackage(filename: string) : Promise<{pkgfile: string, jsonfile: string}> {
+        if (!filename.match(/[.][^./]+$/)) filename += '.coq-pkg';
+
+        var pkgfile = filename,
+            jsonfile = pkgfile.replace(/[.][^./]+$/, '.json');
 
         fs.writeFileSync(jsonfile, JSON.stringify(this.createManifest()));
 
@@ -246,7 +249,7 @@ class ModuleIndex {
 
 import fs from 'fs';
 import path from 'path';
-import JSZip from 'jszip';
+//import JSZip from 'jszip';
 
 class ZipVolume implements FSInterface {
     fs: typeof fs
