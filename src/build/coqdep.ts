@@ -16,8 +16,11 @@ class CoqDep {
     }
 
     processPackage(pkg: string) {
-        for (let mod of this.searchPath.modulesOf(pkg))
-            this.processModule(mod);
+        this.processModules(this.searchPath.modulesOf(pkg));
+    }
+
+    processModules(modules: Iterable<SearchPathElement>) {
+        for (let mod of modules) this.processModule(mod);
     }
 
     processModule(mod: SearchPathElement) {
@@ -72,7 +75,9 @@ class CoqDep {
         }
 
         for (let mod of modules) {
-            modulesByKey.set(key(mod), mod);
+            var k = key(mod);
+            if (mod.physical.endsWith('.v') || !modulesByKey.has(k))
+                modulesByKey.set(k, mod);
         }
 
         // Now the topological sort
@@ -108,7 +113,12 @@ class CoqDep {
         return scan;
     }
 
-    *_extractImports(v_text: string) {
+    _extractImports(v_text: string) {
+        return this._uniqBy(this._extractImportsBase(v_text),
+                            mod => mod.logical.join('.'));
+    }
+
+    *_extractImportsBase(v_text: string) {
         // Strip comments
         v_text = v_text.replace(/\(\*([^*]|[*][^)])*?\*\)/g, ' ');
 
@@ -132,6 +142,16 @@ class CoqDep {
         return (this.searchPath.moduleIndex)
              ? this.searchPath.moduleIndex.findModules(prefix, suffix)
              : this.searchPath.findModules(prefix, suffix);
+    }
+
+    *_uniqBy<T>(gen: Generator<T>, key: (v:T) => string) {
+        var seen: Set<string> = new Set();
+        for (let v of [...gen]) {
+            var k = key(v);
+            if (!seen.has(k)) {
+                seen.add(k); yield v;
+            }
+        }
     }
 
 }
