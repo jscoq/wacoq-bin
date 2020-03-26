@@ -18,6 +18,8 @@ let make_coqpath ?(implicit=true) unix_path lib_path =
 
 let default_load_path = [make_coqpath "/lib" []]
 
+let default_warning_flags = "-notation-overridden"
+
 let init params =
   (* Coqinit.set_debug (); *)
 
@@ -25,13 +27,14 @@ let init params =
   Global.set_engagement Declarations.PredicativeSet;
   Global.set_VM false;
   Global.set_native_compiler false;
+  CWarnings.set_flags default_warning_flags;
 
   Stm.init_core ();
 
   (* Create an initial state of the STM *)
-  let sertop_dp = Stm.TopLogical (Libnames.dirpath_of_string params.top_name) in
-  let require_libs = List.map (fun lib -> (lib, None, Some true)) params.require_libs in
-  let ndoc = { Stm.doc_type = Stm.Interactive sertop_dp;
+  let dirpath = Libnames.dirpath_of_string params.top_name in
+  let require_libs = List.map (fun lib -> (lib, None, Some false)) params.require_libs in
+  let ndoc = { Stm.doc_type = Stm.Interactive (Stm.TopLogical dirpath);
                require_libs = require_libs;
                iload_path = default_load_path;
                stm_options = Stm.AsyncOpts.default_opts } in
@@ -155,15 +158,20 @@ module Compiler = struct
     push vernac_state'.doc vernac_state'.sid;
     vernac_state'.sid
 
-  let compile_vo filename =
+  let rec compile_vo filename ~snapshot =
     let doc, _ = here () in
     ignore @@ Stm.join ~doc;
     let dirp = Lib.library_dp () in
     (* freeze and un-freeze to to allow "snapshot" compilation *)
     (*  (normally, save_library_to closes the lib)             *)
+    (if snapshot then freeze_unfreeze else (fun op -> op ())) (fun () ->
+      Library.save_library_to Library.ProofsTodoNone 
+        ~output_native_objects:false dirp filename (Global.opaque_tables ())
+    )
+
+  and freeze_unfreeze op =
     let frz = Vernacstate.freeze_interp_state ~marshallable:false in
-    Library.save_library_to Library.ProofsTodoNone 
-      ~output_native_objects:false dirp filename (Global.opaque_tables ());
+    op ();
     Vernacstate.unfreeze_interp_state frz
 
 end
@@ -202,7 +210,8 @@ let wacoq_execute = function
   | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
 
   | Load filename ->           [Loaded (filename, Compiler.load filename ~echo:false)]
-  | Compile filename ->        Compiler.compile_vo filename; [Compiled filename]
+  | Compile filename ->        Compiler.compile_vo filename ~snapshot:false;
+                               [Compiled filename]
 
 let deserialize (json : string) =
   [%of_yojson: wacoq_cmd] @@ Yojson.Safe.from_string json
