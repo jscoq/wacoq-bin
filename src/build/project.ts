@@ -11,6 +11,7 @@ class CoqProject {
     name: string
     deps: string[]
     searchPath: SearchPath
+    opts: PackageOptions
 
     _modules: SearchPathElement[]
 
@@ -19,6 +20,14 @@ class CoqProject {
         this.name = name;
         this.deps = [];
         this.searchPath = new SearchPath(volume);
+
+        this.opts = {
+            json: { padding: 1, afterColon: 1, afterComma: 1, wrap: 80 },
+            zip: {
+                compression: 'DEFLATE', createFolders: false,
+                date: new Date("1/1/2000 UTC") // dummy date (otherwise, zip changes every time it is created...)
+            }     
+        };
     }
 
     fromJson(json: {[root: string]: {prefix?: string, dirpaths: string[]}},
@@ -84,12 +93,13 @@ class CoqProject {
         const JSZip = <any>await import('jszip') as JSZip,
               z = new JSZip();
 
-        if (withManifest) z.file('coq-pkg.json', withManifest);
+        if (withManifest) z.file('coq-pkg.json', withManifest, this.opts.zip);
 
         for (let ext of ['.vo', '.cma']) {
             for (let mod of this.modulesByExt(ext)) {
                 z.file(mod.logical.join('/') + ext,
-                    mod.volume.fs.readFileSync(mod.physical));
+                    mod.volume.fs.readFileSync(mod.physical),
+                    this.opts.zip);
             }
         }
         return z;
@@ -98,15 +108,17 @@ class CoqProject {
     toPackage(filename: string = this.name, port: (manifest: any, archive?: string) => any = (x=>x)) : Promise<{pkgfile: string, jsonfile: string}> {
         if (!filename.match(/[.][^./]+$/)) filename += '.coq-pkg';
 
+        const {neatJSON} = require('neatjson');
+        
         var pkgfile = filename,
             jsonfile = pkgfile.replace(/[.][^./]+$/, '.json'),
-            manifest = JSON.stringify(port(this.createManifest(), pkgfile));
+            manifest = neatJSON(port(this.createManifest(), pkgfile), this.opts.json);
 
         fs.writeFileSync(jsonfile, manifest);
 
         return new Promise(async resolve => {
             var z = await this.toZip(manifest);
-            z.generateNodeStream({compression: 'DEFLATE'})
+            z.generateNodeStream()
                 .pipe(fs.createWriteStream(pkgfile))
                 .on('finish', () => resolve({pkgfile, jsonfile}));
         });
@@ -139,6 +151,11 @@ class CoqProject {
     }
 
 }
+
+type PackageOptions = {
+    json: any /* neatjson options */
+    zip: JSZip.JSZipFileOptions
+};
 
 
 class SearchPath {
@@ -340,4 +357,5 @@ class ZipVolume implements FSInterface {
 
 
 
-export { CoqProject, SearchPath, SearchPathElement, ModuleIndex, ZipVolume }
+export { CoqProject, SearchPath, SearchPathElement,
+         PackageOptions, ModuleIndex, ZipVolume }

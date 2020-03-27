@@ -164,7 +164,7 @@ class CLI {
         for (let [pkg, inproj] of Object.entries(this.workspace.projs)) {
             var task = new CompileTask(icoq, <any>opts);
 
-            var {pkgfile} = await task.run(inproj, pkg);
+            var {pkgfile} = await task.run(inproj, opts.package || pkg);
             this.progress(`wrote ${pkgfile}.`, true);
         }
     }
