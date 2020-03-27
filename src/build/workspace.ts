@@ -1,0 +1,57 @@
+import fs from 'fs';
+import path from 'path';
+import { CoqProject, SearchPath, ZipVolume } from './project';
+
+
+
+class Workspace {
+
+    projs: {[name: string]: CoqProject} = {}
+    searchPath = new SearchPath()
+
+    open(jsonFilename: string) {
+        try {
+            var json = JSON.parse(<any>fs.readFileSync(jsonFilename));
+            this.openProjects(json.projects, json.rootdir);
+        }
+        catch (e) {
+            console.warn(`cannot open workspace '${jsonFilename}': ${e}`);
+        }
+    }
+
+    async loadDeps(pkgs: string[], baseDir = '') {
+        for (let pkg of pkgs) {
+            if (!pkg.match(/[.][^./]+$/)) pkg += '.coq-pkg';
+            var proj = new CoqProject(pkg).fromVolume(
+                       await ZipVolume.fromFile(path.join(baseDir, pkg)));
+            this.searchPath.addFrom(proj);
+        }
+    }
+
+    addProject(proj: CoqProject) {
+        this.projs[proj.name] = proj;
+        this.searchPath.addFrom(proj);
+        proj.searchPath = this.searchPath;
+    }
+
+    openProjects(pkgs: any, baseDir: string) {
+        for (let pkg in pkgs) {
+            var proj = new CoqProject(pkg).fromJson(pkgs[pkg], baseDir);
+            this.addProject(proj);
+        }
+    }
+
+    openProjectDirect(nameOrPackage: string,
+                      baseDir: string, prefix: string, dirPaths: string[]) {
+        var name = path.basename(nameOrPackage).replace(/[.][^.]*$/, '');
+        let proj = new CoqProject(name).fromJson({
+            "": { prefix, 'dirpaths': dirPaths }
+        }, baseDir);
+        this.addProject(proj);
+    }
+
+}
+
+
+
+export { Workspace }

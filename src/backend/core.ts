@@ -30,7 +30,7 @@ class IcoqPod extends EventEmitter {
         this.io = new IO;
     }
 
-    get fs() { return this.core.wasmFs.fs; }
+    get fs() { return this.core.fs; }
 
     async boot() {
         await this.upload(`${this.binDir}/icoq.bc`, '/lib/icoq.bc');

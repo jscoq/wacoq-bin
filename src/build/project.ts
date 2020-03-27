@@ -12,6 +12,8 @@ class CoqProject {
     deps: string[]
     searchPath: SearchPath
 
+    _modules: SearchPathElement[]
+
     constructor(name?: string, volume: FSInterface = fsif_native) {
         this.volume = volume;
         this.name = name;
@@ -40,21 +42,34 @@ class CoqProject {
         return this;
     }
 
+    setModules(mods: (string | SearchPathElement)[]) {
+        this._modules = mods.map(mod =>
+            typeof mod === 'string'
+                ? {volume: this.volume, physical: mod, 
+                   logical: this.searchPath.toLogical(mod), pkg: this.name}
+                : mod
+        );
+    }
+
     computeDeps() {
         var coqdep = new CoqDep();
         coqdep.searchPath = this.searchPath;
 
-        coqdep.processPackage(this.name);
+        coqdep.processModules(this.modules());
         return coqdep;
     }
 
+    modules() {
+        return this._modules || this.searchPath.modulesOf(this.name);
+    }
+
     *modulesByExt(ext: string) {
-        for (let mod of this.searchPath.modulesOf(this.name))
+        for (let mod of this.modules())
             if (mod.physical.endsWith(ext)) yield mod;
     }
     
     listModules() {
-        return this.searchPath.listModulesOf(this.name);
+        return this.searchPath._listNames(this.modules());
     }
 
     createManifest() {
@@ -65,9 +80,11 @@ class CoqProject {
         return {name: this.name, deps: this.deps, modules};
     }
 
-    async toZip() {
+    async toZip(withManifest?: string) {
         const JSZip = <any>await import('jszip') as JSZip,
               z = new JSZip();
+
+        if (withManifest) z.file('coq-pkg.json', withManifest);
 
         for (let ext of ['.vo', '.cma']) {
             for (let mod of this.modulesByExt(ext)) {
@@ -78,20 +95,47 @@ class CoqProject {
         return z;
     }
 
-    toPackage(filename: string) : Promise<{pkgfile: string, jsonfile: string}> {
+    toPackage(filename: string = this.name, port: (manifest: any, archive?: string) => any = (x=>x)) : Promise<{pkgfile: string, jsonfile: string}> {
         if (!filename.match(/[.][^./]+$/)) filename += '.coq-pkg';
 
         var pkgfile = filename,
-            jsonfile = pkgfile.replace(/[.][^./]+$/, '.json');
+            jsonfile = pkgfile.replace(/[.][^./]+$/, '.json'),
+            manifest = JSON.stringify(port(this.createManifest(), pkgfile));
 
-        fs.writeFileSync(jsonfile, JSON.stringify(this.createManifest()));
+        fs.writeFileSync(jsonfile, manifest);
 
         return new Promise(async resolve => {
-            var z = await this.toZip();
+            var z = await this.toZip(manifest);
             z.generateNodeStream({compression: 'DEFLATE'})
                 .pipe(fs.createWriteStream(pkgfile))
                 .on('finish', () => resolve({pkgfile, jsonfile}));
         });
+    }
+
+    /**
+     * Converts a package manifest to (older) jsCoq format.
+     * @param manifest original JSON manifest
+     * @param pkgfile `.coq-pkg` archive filename
+     */
+    static backportToJsCoq(manifest: any, pkgfile: string) {
+        var d: {[dp: string]: string[]} = {}
+        for (let k in manifest.modules) {
+            var [dp, mod] = k.split(/[.]([^.]+)$/); 
+            (d[dp] = d[dp] || []).push(mod); 
+        }
+        var pkgs = Object.entries(d).map(([a,b]) => ({ 
+            pkg_id: a.split('.'),
+            vo_files: b.map(x => [`${x}.vo`, null]),
+            cma_files: []
+        }));
+        var modDeps = {};
+        for (let k in manifest.modules) {
+            var deps = manifest.modules[k].deps;
+            if (deps) modDeps[k] = deps;
+        }
+        var archive = manifest.archive || (pkgfile && path.basename(pkgfile));
+        return {desc: manifest.name, deps: manifest.deps || [],
+                archive, pkgs, modDeps};
     }
 
 }
@@ -174,7 +218,7 @@ class SearchPath {
         return this._listNames(this.modulesOf(pkg));
     }
 
-    _listNames(modules: Generator<SearchPathElement>) {
+    _listNames(modules: Iterable<SearchPathElement>) {
         let s = new Set<string>(),
             key = (mod: SearchPathElement) => mod.logical.join('.');
         for (let mod of modules)
