@@ -45,8 +45,10 @@ function main() {
             let [, sid, prefix, modrefs] = ev.data;
             pi.loadModuleDeps(pi.findModules(prefix, modrefs)).then(() => {
                 console.log('resolved');
-                if (stms[sid])
+                if (stms[sid]) {
+                    sendCommand(['RefreshLoadPath']);
                     sendCommand(['Add', null, sid, stms[sid], true]);
+                };
             });
             break;
         case 'GoalInfo':
@@ -78,9 +80,16 @@ function main() {
 
     consl.on('load-pkg', (ev) => worker.postMessage(['LoadPkg', ev.uri]));
 
+    window.addEventListener('dragover', ev => ev.preventDefault());
+    window.addEventListener('drop', ev => {
+        ev.preventDefault();
+        pi.addBlob(ev.dataTransfer.files[0]);
+    });
+
     var pi = new PackageIndex().attach(worker);
-    pi.populate(['init', 'coq-base', 'coq-collections', 'coq-arith', 'coq-reals', 'mathcomp'], '../bin/coq');
-    //pi.loadInfo(['/scratch/fcsl-pcm.json']);
+    pi.populate(['init', 'coq-base', 'coq-collections', 'coq-arith', 'coq-reals'], '../bin/coq');
+    pi.loadInfo(['/scratch/compat/mathcomp.json'])
+    pi.loadInfo(['/scratch/compat/fcsl-pcm.json']);
 
     Object.assign(window, {worker, pi});
 }

@@ -29,6 +29,13 @@ class PackageIndex {
             this.moduleIndex.set(mod, pkg);
     }
 
+    async addBlob(pkg: Blob) {
+        var z = await (await import('JSZip')).loadAsync(pkg),
+            manifest = JSON.parse(await z.file('coq-pkg.json').async('string'));
+        manifest.archive = URL.createObjectURL(pkg);
+        this.add(manifest);
+    }
+
     populate(pkgs: string[], baseDir: string) {
         var uris = pkgs.map(pkg => `${baseDir}/${pkg}.json`);
         return this.loadInfo(uris);
