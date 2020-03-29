@@ -72,9 +72,13 @@ class CoqProject {
         return this._modules || this.searchPath.modulesOf(this.name);
     }
 
-    *modulesByExt(ext: string) {
+    modulesByExt(ext: string) {
+        return this.modulesByExts([ext]);
+    }
+
+    *modulesByExts(exts: string[]) {
         for (let mod of this.modules())
-            if (mod.physical.endsWith(ext)) yield mod;
+            if (exts.some(ext => mod.physical.endsWith(ext))) yield mod;
     }
     
     listModules() {
@@ -85,43 +89,62 @@ class CoqProject {
         var mdeps = this.computeDeps().depsToJson(),
             modules:any = {};
         for (let k of this.listModules())
-            modules[k] = {deps: mdeps[k]};
+            modules[k] = mdeps[k] ? {deps: mdeps[k]} : {};
         return {name: this.name, deps: this.deps, modules};
     }
 
-    async toZip(withManifest?: string) {
+    /**
+     *  Read project file and store all .v files in transient folders
+     * according to their logical paths.
+     */
+    copyLogical(store = new InMemoryVolume()) {
+        for (let {volume, physical, logical} of this.modulesByExt('.v')) {
+            store.fs.writeFileSync(
+                `/${logical.join('/')}.v`, volume.fs.readFileSync(physical));
+        }
+
+        return new CoqProject(this.name, store).fromDirectory('/');
+    }
+  
+    async toZip(withManifest?: string, extensions = ['.vo', '.cma']) {
         const JSZip = <any>await import('jszip') as JSZip,
               z = new JSZip();
 
         if (withManifest) z.file('coq-pkg.json', withManifest, this.opts.zip);
 
-        for (let ext of ['.vo', '.cma']) {
-            for (let mod of this.modulesByExt(ext)) {
-                z.file(mod.logical.join('/') + ext,
-                    mod.volume.fs.readFileSync(mod.physical),
-                    this.opts.zip);
-            }
+        for (let mod of this.modulesByExts(extensions)) {
+            var ext = mod.physical.match(/[.][^.]+$/)[0];
+            z.file(mod.logical.join('/') + ext,
+                mod.volume.fs.readFileSync(mod.physical),
+                this.opts.zip);
         }
         return z;
     }
 
-    async toPackage(filename: string = this.name, port: (manifest: any, archive?: string) => any = (x=>x)) : Promise<{pkgfile: string, jsonfile: string}> {
-        if (!filename.match(/[.][^./]+$/)) filename += '.coq-pkg';
+    async toPackage(filename: string = this.name, extensions?: string[],
+                    port: (manifest: any, archive?: string) => any = (x=>x))
+            : Promise<PackageResult> {
 
         const {neatJSON} = await import('neatjson');
+
+        if (!filename.match(/[.][^./]+$/)) filename += '.coq-pkg';
         
-        var pkgfile = filename,
-            jsonfile = pkgfile.replace(/[.][^./]+$/, '.json'),
-            manifest = neatJSON(port(this.createManifest(), pkgfile), this.opts.json);
+        var jsonfn = filename.replace(/[.][^./]+$/, '.json'),
+            manifest = neatJSON(port(this.createManifest(), filename), this.opts.json);
 
-        fs.writeFileSync(jsonfile, manifest);
-
-        return new Promise(async resolve => {
-            var z = await this.toZip(manifest);
-            z.generateNodeStream()
-                .pipe(fs.createWriteStream(pkgfile))
-                .on('finish', () => resolve({pkgfile, jsonfile}));
-        });
+        return {
+            pkg: {filename, zip: await this.toZip(manifest, extensions)},
+            manifest: {filename: jsonfn, json: manifest},
+            save() {
+                fs.writeFileSync(this.manifest.filename, this.manifest.json);
+                return new Promise(async (resolve, reject) => {
+                    this.pkg.zip.generateNodeStream()
+                        .pipe(fs.createWriteStream(this.pkg.filename))
+                        .on('error', (e:any) => reject(e))
+                        .on('finish', () => resolve(this));
+                });
+            }
+        }
     }
 
     /**
@@ -155,6 +178,12 @@ class CoqProject {
 type PackageOptions = {
     json: any /* neatjson options */
     zip: JSZip.JSZipFileOptions
+};
+
+type PackageResult = {
+    pkg:      {filename: string, zip: JSZip},
+    manifest: {filename: string, json: string},
+    save():   Promise<PackageResult>
 };
 
 
@@ -396,12 +425,16 @@ class ZipVolume extends StoreVolume {
         this.zip.forEach((fn: string) => this._files.push(fn));
     }
 
+    readFileSync(filename: string, encoding?: string) {
+        var entry = this.zip.files[filename];
+        if (entry)   return this._inflateSync(entry);
+        else         throw new Error(`ENOENT: ${filename}`);
+    }
+
     statSync(fp: string) {
         var entry = this.zip.files[fp] || this.zip.files[fp + '/'];
-        if (entry)
-            return { isDirectory() { return entry && entry.dir; } };
-        else
-            return super.statSync(fp);
+        if (entry)   return { isDirectory() { return entry && entry.dir; } };
+        else         return super.statSync(fp);
     }
 
     static async fromFile(zipFilename: string) {
@@ -409,6 +442,22 @@ class ZipVolume extends StoreVolume {
         return new ZipVolume(
             await JSZip.loadAsync((0 || fs.readFileSync)(zipFilename)));
     }
+
+    static async fromBlob(blob: Blob | Promise<Blob>) {
+        const JSZip = await import('jszip');
+        return new ZipVolume(await JSZip.loadAsync(<any>blob));
+    }
+
+    _inflateSync(entry: any) {
+        const { DEFLATE } = require('jszip/lib/compressions'),
+              { inflateRaw } = require('pako');
+        
+        if (entry._data.compression == DEFLATE)
+            return inflateRaw(entry._data.compressedContent);
+        else /* STORE */
+            return entry._data.compressedContent;
+    }
+
 }
 
 

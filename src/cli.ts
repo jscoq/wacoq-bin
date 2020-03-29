@@ -27,7 +27,7 @@ class CompileTask {
         this.opts = opts;
     }
 
-    run(inproj: CoqProject, outname?: string) {
+    async run(inproj: CoqProject, outname?: string) {
         this._listen();
 
         var plan = inproj.computeDeps().buildOrder();
@@ -38,7 +38,7 @@ class CompileTask {
                 this.compile(mod);
         }
     
-        return this.toPackage(outname);
+        return (await this.toPackage(outname)).save();
     }
 
     compile(mod: SearchPathElement, opts=this.opts) {
@@ -62,7 +62,7 @@ class CompileTask {
         this.outproj.searchPath.addRecursive({physical: '/lib', logical: []});
         this.outproj.setModules(this._files());
         
-        return this.outproj.toPackage(undefined,
+        return this.outproj.toPackage(undefined, undefined,
             this.opts.jscoq ? CoqProject.backportToJsCoq : undefined);
     }
 
@@ -169,12 +169,12 @@ class CLI {
         await icoq.boot();
         await icoq.loadPackages(opts.loads);
     
-        for (let [pkg, inproj] of Object.entries(this.workspace.projs)) {
+        for (let [pkgname, inproj] of Object.entries(this.workspace.projs)) {
             var task = new CompileTask(icoq, <any>opts);
 
-            var {pkgfile} = await task.run(inproj, 
-                                opts.package || path.join(outdir, pkg));
-            this.progress(`wrote ${pkgfile}.`, true);
+            var {pkg} = await task.run(inproj, 
+                            opts.package || path.join(outdir, pkgname));
+            this.progress(`wrote ${pkg.filename}.`, true);
         }
     }
 
@@ -184,11 +184,13 @@ class CLI {
 
         this.workspace.searchPath.createIndex();  // to speed up coqdep
 
-        for (let pkg in this.workspace.projs) {
-            this.progress(`[${pkg}] `, false);
-            var {pkgfile} = await this.workspace.projs[pkg]
-                            .toPackage(opts.package || path.join(outdir, pkg), f);
-            this.progress(`wrote ${pkgfile}.`, true);
+        for (let pkgname in this.workspace.projs) {
+            this.progress(`[${pkgname}] `, false);
+            var p = await this.workspace.projs[pkgname]
+                    .toPackage(opts.package || path.join(outdir, pkgname),
+                               undefined, f);
+            await p.save();    
+            this.progress(`wrote ${p.pkg.filename}.`, true);
         }
     }
 
