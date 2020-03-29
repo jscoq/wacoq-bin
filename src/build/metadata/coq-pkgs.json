@@ -1,5 +1,6 @@
 {
     "rootdir": "_build/wacoq/vendor/coq",
+    "builddir": "bin/coq",
     "projects": {
         "init": {
             "theories": {

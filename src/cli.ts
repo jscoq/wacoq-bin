@@ -140,8 +140,14 @@ class CLI {
         this.progress = process.stdout.isTTY ? progressTTY : progressLog;
     }
 
-    prepare(opts = this.opts) {
+    async prepare(opts = this.opts) {
         var workspace = new Workspace();
+        if (opts.outdir)
+            workspace.outDir = opts.outdir;
+        if (!opts.nostdlib)
+            opts.loads.push(...CLI.stdlibLoads());
+        if (!opts.compile)
+            await workspace.loadDeps(opts.loads);
         if (opts.workspace)
             workspace.open(opts.workspace);
         else if (opts.project)
@@ -156,6 +162,8 @@ class CLI {
     }
 
     async compile(opts = this.opts) {
+        var outdir = this.workspace.outDir;
+
         // Fire up the pod
         var icoq = new IcoqPodCLI();
         await icoq.boot();
@@ -164,14 +172,17 @@ class CLI {
         for (let [pkg, inproj] of Object.entries(this.workspace.projs)) {
             var task = new CompileTask(icoq, <any>opts);
 
-            var {pkgfile} = await task.run(inproj, opts.package || pkg);
+            var {pkgfile} = await task.run(inproj, 
+                                opts.package || path.join(outdir, pkg));
             this.progress(`wrote ${pkgfile}.`, true);
         }
     }
 
     async package(opts = this.opts) {
-        var pkgdir = 'bin/coq', outdir = pkgdir,
+        var outdir = this.workspace.outDir,
             f = opts.jscoq && CoqProject.backportToJsCoq;
+
+        this.workspace.searchPath.createIndex();  // to speed up coqdep
 
         for (let pkg in this.workspace.projs) {
             this.progress(`[${pkg}] `, false);
@@ -179,6 +190,14 @@ class CLI {
                             .toPackage(opts.package || path.join(outdir, pkg), f);
             this.progress(`wrote ${pkgfile}.`, true);
         }
+    }
+
+    static stdlib() {
+        return require('./build/metadata/coq-pkgs.json');
+    }
+
+    static stdlibLoads() {
+        return [...Object.keys(this.stdlib().projects)].map(pkg => `+${pkg}`);
     }
 
 }
@@ -197,9 +216,11 @@ async function main() {
         .option('--top <name>',               'logical name of toplevel directory')
         .option('--dirpaths <a.b.c>',         'logical paths containing modules (comma separated)', '')
         .option('--package <f.coq-pkg>',      'create a package (default extension is `.coq-pkg`)')
+        .option('-d,--outdir <dir>',          'set default output directory')
         .option('--load <f.coq-pkg>',         'load package(s) for compilation and for module dependencies (comma separated, may repeat)')
         .option('--compile',                  'compile `.v` files to `.vo`')
         .option('--continue',                 'pick up from previous build')
+        .option('--nostdlib',                 'skip loading the standard Coq packages')
         .option('--jscoq',                    'jsCoq compatibility mode')
         .on('option:load', pkg => loads.push(...pkg.split(',')))
         .parse(process.argv);
@@ -219,8 +240,11 @@ async function main() {
     var cli = new CLI(opts);
 
     try {
-        cli.prepare();
-        await cli.compile();
+        await cli.prepare();
+        if (opts.compile)
+            await cli.compile();
+        else
+            await cli.package();
     }
     catch (e) {
         if (e instanceof BuildError) return 1;

@@ -26,7 +26,7 @@ class Workspace {
     async loadDeps(pkgs: string[], baseDir = '') {
         for (let pkg of pkgs) {
             if (!pkg.match(/[.][^./]+$/)) pkg += '.coq-pkg';
-            var proj = new CoqProject(pkg).fromVolume(
+            var proj = new CoqProject(pkg).fromDirectory('',
                        await ZipVolume.fromFile(path.join(baseDir, pkg)));
             this.searchPath.addFrom(proj);
         }
@@ -77,10 +77,11 @@ async function main() {
         .option('--workspace <w.json>',       'build projects from specified workspace')
         .option('--project <dir>',            'base directory for finding `.v` and `.vo` files')
         .option('--top <name>',               'logical name of toplevel directory')
-        .option('--dirpaths <a.b.c>',         'logical paths containing modules (comma separated)')
+        .option('--dirpaths <a.b.c>',         'logical paths containing modules (comma separated)', '')
         .option('--package <f.coq-pkg>',      'create a package (default extension is `.coq-pkg`)')
         .option('--ref <f.coq-pkg>',          'consider `f.coq-pkg` for module dependencies')
         .option('--boot',                     'build initial Coq packages')
+        .option('--jscoq',                    'jsCoq compatibility mode')
         .on('option:ref', (fn: string) => refs.push(fn))
         .parse(process.argv);
 
@@ -101,10 +102,12 @@ async function main() {
 
     workspace.searchPath.createIndex();
 
+    var f = opts.jscoq && CoqProject.backportToJsCoq;
+
     for (let pkg in workspace.projs) {
         progress(`[${pkg}] `, false);
         var {pkgfile} = await workspace.projs[pkg]
-                        .toPackage(opts.package || path.join(outdir, pkg));
+                        .toPackage(opts.package || path.join(outdir, pkg), f);
         progress(`wrote ${pkgfile}.`, true);
     }
 }
