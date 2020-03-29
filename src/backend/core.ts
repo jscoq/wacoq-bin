@@ -84,15 +84,24 @@ class IcoqPod extends EventEmitter {
     }
 
     putFile(filename: string, content: Uint8Array | string) {
+        if (!filename.startsWith('/')) filename = `/lib/${filename}`;
         // needs to be synchronous
         this.fs.mkdirpSync(filename.replace(/[/][^/]+$/, ''))
         this.fs.writeFileSync(filename, content);
+    }
+
+    getFile(filename: string) {
+        if (!filename.startsWith('/')) filename = `/lib/${filename}`;
+        var buf: Uint8Array = null;
+        try { buf = <any>this.fs.readFileSync(filename); } catch { }
+        this.answer([['Got', filename, buf]]);
     }
 
     command(cmd: any[]) {
         switch (cmd[0]) {
         case 'LoadPkg':   this.loadPackages(cmd[1]);               return;
         case 'Put':       this.putFile(cmd[1], cmd[2]);            return;
+        case 'Get':       this.getFile(cmd[1]);                    return;
         }
 
         const wacoq_post = this.core.callbacks && this.core.callbacks.wacoq_post;
