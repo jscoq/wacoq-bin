@@ -8,10 +8,13 @@ class Workspace {
 
     projs: {[name: string]: CoqProject} = {}
     searchPath = new SearchPath()
+    pkgDir = "bin/coq"
+    outDir = ""
 
     open(jsonFilename: string) {
         try {
             var json = JSON.parse(<any>fs.readFileSync(jsonFilename));
+            if (json.builddir) this.outDir = json.builddir;
             this.openProjects(json.projects, json.rootdir);
         }
         catch (e) {
@@ -21,8 +24,10 @@ class Workspace {
 
     async loadDeps(pkgs: string[], baseDir = '') {
         for (let pkg of pkgs) {
+            pkg = pkg.replace(/^[+]/, this.pkgDir.replace(/(?<=[^/])$/, '/'));
             if (!pkg.match(/[.][^./]+$/)) pkg += '.coq-pkg';
-            var proj = new CoqProject(pkg).fromVolume(
+
+            var proj = new CoqProject(pkg).fromDirectory('',
                        await ZipVolume.fromFile(path.join(baseDir, pkg)));
             this.searchPath.addFrom(proj);
         }

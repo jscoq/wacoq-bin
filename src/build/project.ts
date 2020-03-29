@@ -45,9 +45,9 @@ class CoqProject {
         return this;
     }
 
-    fromVolume(volume = this.volume) {
+    fromDirectory(dir: string = '', volume = this.volume) {
         this.searchPath.addRecursive({volume,
-                    physical: '', logical: '', pkg: this.name});
+                    physical: dir, logical: '', pkg: this.name});
         return this;
     }
 
@@ -105,10 +105,10 @@ class CoqProject {
         return z;
     }
 
-    toPackage(filename: string = this.name, port: (manifest: any, archive?: string) => any = (x=>x)) : Promise<{pkgfile: string, jsonfile: string}> {
+    async toPackage(filename: string = this.name, port: (manifest: any, archive?: string) => any = (x=>x)) : Promise<{pkgfile: string, jsonfile: string}> {
         if (!filename.match(/[.][^./]+$/)) filename += '.coq-pkg';
 
-        const {neatJSON} = require('neatjson');
+        const {neatJSON} = await import('neatjson');
         
         var pkgfile = filename,
             jsonfile = pkgfile.replace(/[.][^./]+$/, '.json'),
@@ -312,20 +312,16 @@ import fs from 'fs';
 import path from 'path';
 //import JSZip from 'jszip';
 
-class ZipVolume implements FSInterface {
+abstract class StoreVolume implements FSInterface {
+
     fs: typeof fs
     path: typeof path
-    zip: JSZip
 
-    _files: string[]
+    abstract _files: Iterable<string>
 
-    constructor(zip: JSZip) {
+    constructor() {
         this.fs = <any>this;
         this.path = fsif_native.path;
-        this.zip = zip;
-
-        this._files = [];
-        this.zip.forEach((fn: string) => this._files.push(fn));
     }
 
     readdirSync(dir: string) {
@@ -334,7 +330,7 @@ class ZipVolume implements FSInterface {
         for (let fn of this._files) {
             if (fn.startsWith(dir)) {
                 var steps = fn.substring(dir.length).split('/').filter(x => x);
-                if (steps.length == 1)
+                if (steps[0] && !d.includes(steps[0]))
                     d.push(steps[0]);
             }
         }
@@ -342,20 +338,80 @@ class ZipVolume implements FSInterface {
     }
 
     statSync(fp: string) {
-        var entry = this.zip.files[fp] || this.zip.files[fp + '/'];
-        return {
-            isDirectory() { return entry && entry.dir; }
+        var fpSlash = fp.replace(/(^|(?<=[^/]))$/, '/');
+        for (let k of this._files) {
+            if (k.startsWith(fpSlash)) return {isDirectory: () => true};
         }
+        throw new Error(`ENOENT: '${fp}'`);
+    }
+
+}
+
+
+class InMemoryVolume extends StoreVolume {
+
+    fileMap: Map<string, Uint8Array>
+
+    constructor() {
+        super();
+        this.fileMap = new Map();
+    }
+
+    get _files() {
+        return this.fileMap.keys();
+    }
+
+    writeFileSync(filename: string, content: Uint8Array | string) {
+        if (typeof content === 'string') content = new TextEncoder().encode(content);
+        this.fileMap.set(filename, content);
+    }
+
+    readFileSync(filename: string, encoding?: string) {
+        var contents = this.fileMap.get(filename);
+        if (contents)
+            return encoding ? new TextDecoder().decode(contents) : contents;
+        else
+            throw new Error(`ENOENT: '${filename}'`);
+    }
+
+    statSync(fp: string) {
+        var file = this.fileMap.get(fp);
+        if (file) return {isDirectory: () => false};
+        else return super.statSync(fp);
+    }
+
+}
+
+
+class ZipVolume extends StoreVolume {
+    zip: JSZip
+
+    _files: string[]
+
+    constructor(zip: JSZip) {
+        super();
+        this.zip = zip;
+
+        this._files = [];
+        this.zip.forEach((fn: string) => this._files.push(fn));
+    }
+
+    statSync(fp: string) {
+        var entry = this.zip.files[fp] || this.zip.files[fp + '/'];
+        if (entry)
+            return { isDirectory() { return entry && entry.dir; } };
+        else
+            return super.statSync(fp);
     }
 
     static async fromFile(zipFilename: string) {
         const JSZip = await import('jszip');
         return new ZipVolume(
-            await JSZip.loadAsync(fs.readFileSync(zipFilename)));
+            await JSZip.loadAsync((0 || fs.readFileSync)(zipFilename)));
     }
 }
 
 
 
 export { CoqProject, SearchPath, SearchPathElement,
-         PackageOptions, ModuleIndex, ZipVolume }
+         PackageOptions, ModuleIndex, InMemoryVolume, ZipVolume }
