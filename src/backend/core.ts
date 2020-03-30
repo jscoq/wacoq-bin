@@ -61,6 +61,8 @@ class IcoqPod extends EventEmitter {
 
         if (refresh)
             this.command(['RefreshLoadPath']);
+
+        this.answer([['LoadedPkg', uris]]);
     }
 
     async loadSources(uri: string, dirpath: string) {

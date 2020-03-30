@@ -193,6 +193,7 @@ class SearchPath {
     path: SearchPathElement[]
 
     moduleIndex: ModuleIndex
+    packageIndex: PackageIndex
 
     constructor(volume: FSInterface = fsif_native) {
         this.volume = volume;
@@ -273,6 +274,13 @@ class SearchPath {
     }
 
     *findModules(prefix: string | string[], name: string | string[], exact=false) {
+        yield* this.moduleIndex 
+            ? this.moduleIndex.findModules(prefix, name, exact)
+            : this._findModules(prefix, name, exact);
+        yield* this._findExtern(prefix, name, exact);
+    }
+
+    *_findModules(prefix: string | string[], name: string | string[], exact=false) {
         var lprefix = this.toDirPath(prefix) || [],
             lsuffix = this.toDirPath(name);
 
@@ -287,10 +295,18 @@ class SearchPath {
             if (matches(mod.logical)) yield mod;
     }
 
+    *_findExtern(prefix: string | string[], name: string | string[], exact=false) {
+        if (this.packageIndex) {
+            for (let k of this.packageIndex.findModules(prefix, name, exact))
+                yield {volume: null, physical: null, logical: k.split('.'), pkg: '+'};
+        }
+    }
+
     createIndex() {
         this.moduleIndex = new ModuleIndex();
         for (let mod of this.modules())
             this.moduleIndex.add(mod);
+        return this.moduleIndex;
     }
 
 }
@@ -326,14 +342,31 @@ class ModuleIndex {
         this.index.set(key(mod), mod);
     }
 
-    *findModules(prefix: string, suffix: string) {
+    *findModules(prefix: string | string[], suffix: string | string[], exact=false) {
+        if (Array.isArray(prefix)) prefix = prefix.join('.');
+        if (Array.isArray(suffix)) suffix = suffix.join('.');
+
         prefix = prefix ? prefix + '.' : '';
-        var dotsuffix = '.' + suffix;
-        for (let k of this.index.keys()) {
-            if (k.startsWith(prefix) && (k == suffix || k.endsWith(dotsuffix)))
-                yield this.index.get(k);
+        if (exact) {
+            var lu = this.index.get(prefix + suffix);
+            if (lu) yield lu;
+        }
+        else {
+            var dotsuffix = '.' + suffix;
+            for (let [k, mod] of this.index.entries()) {
+                if (k.startsWith(prefix) && (k == suffix || k.endsWith(dotsuffix)))
+                    yield mod;
+            }
         }
     }
+}
+
+
+interface PackageIndex {
+    findModules(prefix: string | string[], suffix: string | string[],
+                exact?: boolean): Iterable<string>;
+    findPackageDeps(prefix: string | string[], suffix: string | string[],
+                    exact?: boolean): Set<string>;
 }
 
 

@@ -8,11 +8,13 @@ class CoqDep {
     volume: FSInterface
     searchPath: SearchPath
     deps: {from: SearchPathElement, to: SearchPathElement[]}[]
+    extern: Set<string>
 
     constructor(volume: FSInterface = fsif_native) {
         this.volume = volume;
         this.searchPath = new SearchPath(volume);
         this.deps = [];
+        this.extern = new Set();
     }
 
     processPackage(pkg: string) {
@@ -42,6 +44,8 @@ class CoqDep {
         var deps = [...this._extractImports(v_text)];
         if (deps.length > 0)
             this.deps.push({from: mod, to: deps});
+        for (let pkg of this._getExtern(deps))
+            this.extern.add(pkg);
     }
 
     depsToJson() {
@@ -139,9 +143,15 @@ class CoqDep {
     }
 
     _resolve(prefix: string, suffix: string) {
-        return (this.searchPath.moduleIndex)
-             ? this.searchPath.moduleIndex.findModules(prefix, suffix)
-             : this.searchPath.findModules(prefix, suffix);
+        return this.searchPath.findModules(prefix, suffix);
+    }
+
+    *_getExtern(deps: SearchPathElement[]) {
+        var pi = this.searchPath.packageIndex;
+        if (pi) {
+            for (let mod of deps)
+                yield* pi.findPackageDeps(null, mod.logical, true);
+        }
     }
 
     *_uniqBy<T>(gen: Generator<T>, key: (v:T) => string) {

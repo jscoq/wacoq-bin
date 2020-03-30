@@ -145,7 +145,7 @@ class CLI {
         if (opts.outdir)
             workspace.outDir = opts.outdir;
         if (!opts.nostdlib)
-            opts.loads.push(...CLI.stdlibLoads());
+            opts.loads.splice(0, 0, ...CLI.stdlibLoads());
         if (!opts.compile)
             await workspace.loadDeps(opts.loads);
         if (opts.workspace)

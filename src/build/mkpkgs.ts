@@ -104,11 +104,13 @@ async function main() {
 
     var f = opts.jscoq && CoqProject.backportToJsCoq;
 
-    for (let pkg in workspace.projs) {
-        progress(`[${pkg}] `, false);
-        var {pkgfile} = await workspace.projs[pkg]
-                        .toPackage(opts.package || path.join(outdir, pkg), f);
-        progress(`wrote ${pkgfile}.`, true);
+    for (let pkgname in workspace.projs) {
+        progress(`[${pkgname}] `, false);
+        var {pkg} =await (await workspace.projs[pkg]
+                          .toPackage(opts.package || path.join(outdir, pkg),
+                                     undefined, f)
+                         ).save();
+        progress(`wrote ${pkg.filename}.`, true);
     }
 }
 
