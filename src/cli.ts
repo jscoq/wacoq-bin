@@ -8,88 +8,42 @@ import { FormatPrettyPrint } from './ui/format-pprint';
 import { IcoqPod } from './backend/core';
 import { CoqProject, SearchPathElement } from './build/project';
 import { Workspace } from './build/workspace';
+import { Batch, CompileTask, BuildError } from './build/batch';
 
 
 
-class CompileTask {
 
-    icoq: IcoqPod
-    outproj: CoqProject
-    infiles: SearchPathElement[] = []
-    outfiles: string[] = []
+class BatchPod extends Batch {
 
-    opts: CompileTaskOptions
+    icoq: IcoqPod;
+    queue: any[][];
 
-    constructor(icoq: IcoqPod, opts: CompileTaskOptions) {
+    constructor(icoq: IcoqPod) {
+        super();
         this.icoq = icoq;
-        var outvol = {fs: <any>icoq.fs as typeof fs, path};
-        this.outproj = new CoqProject('out', outvol);
-        this.opts = opts;
+        this.queue = [];
+        this.volume = {fs: <any>icoq.fs, path};
+
+        this.icoq.on('message', (msg: any[]) =>
+            this.queue.push(msg));
     }
 
-    async run(inproj: CoqProject, outname?: string) {
-        this._listen();
+    command(cmd: any[]): void {
+        this.icoq.command(cmd);  // response is handled *synchronously* (?)
+    }
 
-        var plan = inproj.computeDeps().buildOrder();
-
-        for (let mod of plan) {
-            console.log(mod.physical);
-            if (mod.physical.endsWith('.v'))
-                this.compile(mod);
+    expect(yes: (msg: any[]) => boolean,
+           no:  (msg: any[]) => boolean = this.isError): Promise<any[]> {
+        while (this.queue.length > 0) {
+            let msg = this.queue.shift();
+            if (yes(msg))     return Promise.resolve(msg);
+            else if (no(msg)) return Promise.reject(msg);
         }
+    }
+
     
-        return (await this.toPackage(outname)).save();
-    }
-
-    compile(mod: SearchPathElement, opts=this.opts) {
-        var {volume, logical, physical} = mod,
-            infn = `/lib/${logical.join('/')}.v`, outfn = `${infn}o`;
-        this.infiles.push(mod);
-        this.icoq.command(['Put', infn, volume.fs.readFileSync(physical)]);
-
-        if (opts.continue && this.outproj.volume.fs.existsSync(outfn)) {
-            this.outfiles.push(outfn);
-        }
-        else {
-            this.icoq.command(['Init', {top_name: logical.join('.')}]);
-            this.icoq.command(['Load', infn]);
-            this.icoq.command(['Compile', outfn]);
-        }
-    }
-
-    toPackage(name?: string) {
-        this.outproj.name = name;
-        this.outproj.searchPath.addRecursive({physical: '/lib', logical: []});
-        this.outproj.setModules(this._files());
-        
-        return this.outproj.toPackage(undefined, undefined,
-            this.opts.jscoq ? CoqProject.backportToJsCoq : undefined);
-    }
-
-    _listen() {
-        this.icoq.on('message', msg => this._handleMessage(msg));
-    }
-
-    _handleMessage(msg: any[]) {
-        switch (msg[0]) {
-        case 'Compiled':  this.outfiles.push(msg[1]); break;
-        case 'CoqExn': throw new BuildError();
-        }
-    }
-
-    _files(): (string | SearchPathElement)[] {
-        return [].concat(this.infiles, this.outfiles);
-    }
 
 }
-
-type CompileTaskOptions = {
-    continue?: boolean
-    jscoq?: boolean
-};
-
-
-class BuildError { }
 
 
 class IcoqPodCLI extends IcoqPod {
@@ -170,10 +124,13 @@ class CLI {
         await icoq.loadPackages(opts.loads);
     
         for (let [pkgname, inproj] of Object.entries(this.workspace.projs)) {
-            var task = new CompileTask(icoq, <any>opts);
+            var task = new CompileTask(new BatchPod(icoq), inproj, <any>opts);
 
-            var {pkg} = await task.run(inproj, 
-                            opts.package || path.join(outdir, pkgname));
+            await task.run(pkgname);
+            var out = await out.toPackage(
+                            opts.package || path.join(outdir, pkgname)),
+                {pkg} = await out.save();
+                
             this.progress(`wrote ${pkg.filename}.`, true);
         }
     }

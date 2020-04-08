@@ -1,19 +1,52 @@
-import { CoqDep } from './coqdep';
+import { EventEmitter } from 'events';
+import { FSInterface } from './fsif';
+import { SearchPathElement, CoqProject, InMemoryVolume } from './project';
 
 
 
-class Batch {
+abstract class Batch {
+
+    volume: FSInterface = null;
+
+    abstract command(cmd: any[]): void;
+    abstract expect(yes: (msg: any[]) => boolean,
+                    no?: (msg: any[]) => boolean): Promise<any[]>;
+
+    async do(...actions: (any[] | ((msg: any[]) => boolean))[]) {
+        var replies = [];
+
+        for (let action of actions)
+            if (typeof action === 'function')
+                replies.push(await this.expect(action));
+            else this.command(action);
+
+        return replies;
+    }
+
+    isError(msg: any[]) {
+        return ['JsonExn', 'CoqExn'].includes(msg[0]);
+    }    
+}
+
+
+class BatchWorker extends Batch {
 
     worker: Worker
 
-    constructor() {
-        this.worker = new Worker(0 || './worker.js');  // bypass Parcel (fails to build worker at the moment)
+    constructor(worker: Worker) {
+        super();
+        this.worker = worker;
     }
 
-    expect(yes: (msg: any[]) => boolean, no: (msg: any[]) => boolean = Batch.isError) {
+    command(cmd: any[]) {
+        this.worker.postMessage(cmd);
+    }
+
+    expect(yes: (msg: any[]) => boolean,
+           no:  (msg: any[]) => boolean = m => this.isError(m)) {
         const worker = this.worker;
-        return new Promise((resolve, reject) => {
-            function h(ev: any) {
+        return new Promise<any[]>((resolve, reject) => {
+            function h(ev: {data: any[]}) {
                 if (yes(ev.data))       { cleanup(); resolve(ev.data); }
                 else if (no(ev.data))   { cleanup(); reject(ev.data); }
             }
@@ -22,58 +55,118 @@ class Batch {
         });
     }    
 
-    command(cmd: any[]) {
-        this.worker.postMessage(cmd);
+}
+
+
+class CompileTask extends EventEmitter{
+
+    batch: Batch
+    inproj: CoqProject
+    outproj: CoqProject
+    infiles: SearchPathElement[] = [];
+    outfiles: SearchPathElement[] = [];
+    volume: FSInterface
+
+    opts: CompileTaskOptions
+
+    _stop = false;
+
+    constructor(batch: Batch, inproj: CoqProject, opts: CompileTaskOptions = {}) {
+        super();
+        this.batch = batch;
+        this.inproj = inproj;
+        this.opts = opts;
+
+        this.volume = batch.volume || new InMemoryVolume();
     }
 
-    async do(...actions: (any[] | ((msg: any[]) => boolean))[]) {
-        for (let action of actions)
-            if (typeof action === 'function') await this.expect(action);
-            else this.command(action);
+    async run(outname?: string) {
+        if (this._stop) return;
+
+        var coqdep = this.inproj.computeDeps(),
+            plan = coqdep.buildOrder();
+
+        await this.loadPackages(coqdep.extern);
+
+        for (let mod of plan) {
+            if (this._stop) break;
+            if (mod.physical.endsWith('.v'))
+                await this.compile(mod);
+        }
+    
+        return this.output(outname);
     }
 
-    static isError(msg: any[]) {
-        return ['JsonExn', 'CoqExn'].includes(msg[0]);
+    async loadPackages(pkgs: Set<string>) {
+        if (pkgs.size > 0)
+            await this.batch.do(
+                ['LoadPkg', [...pkgs].map(pkg => `+${pkg}`)],
+                msg => msg[0] == 'LoadedPkg'
+            );
+    }
+
+    async compile(mod: SearchPathElement, opts=this.opts) {
+        var {volume, logical, physical} = mod,
+            infn = `/lib/${logical.join('/')}.v`, outfn = `${infn}o`;
+        this.infiles.push(mod);
+
+        this.emit('progress', [{filename: physical, status: 'compiling'}]);
+
+        try {
+            await this.batch.do(
+                ['Init', {top_name: logical.join('.')}],
+                ['Put', infn, volume.fs.readFileSync(physical)],
+                ['Load', infn],            msg => msg[0] == 'Loaded',
+                ['Compile', outfn],        msg => msg[0] == 'Compiled');
+
+            if (!this.batch.volume) {
+                let [[, , vo]] = await this.batch.do(
+                    ['Get', outfn],        msg => msg[0] == 'Got');            
+                this.volume.fs.writeFileSync(outfn, vo);
+            }
+
+            this.outfiles.push({volume: this.volume, 
+                                logical, physical: outfn});
+
+            this.emit('progress', [{filename: physical, status: 'compiled'}]);
+        }
+        catch (e) {
+            this.emit('report', e);
+            this.emit('progress', [{filename: physical, status: 'error'}]);
+            throw e;
+        }
+    }
+
+    stop() { this._stop = true; }
+
+    output(name?: string) {
+        this.outproj = new CoqProject(name || this.inproj.name || 'out',
+                                      this.volume);
+        for (let mod of this.outfiles) mod.pkg = this.outproj.name;
+        this.outproj.searchPath.addRecursive({physical: '/lib', logical: []});
+        this.outproj.setModules(this._files());
+        return this.outproj;
+    }
+        
+    toPackage(filename?: string, extensions?: string[]) {
+        return this.outproj.toPackage(filename, extensions,
+            this.opts.jscoq ? CoqProject.backportToJsCoq : undefined);
+    }
+
+    _files(): SearchPathElement[] {
+        return [].concat(this.infiles, this.outfiles);
     }
 
 }
 
-
-async function build(dir: string, logical: string | string[]) {
-    var d = new CoqDep();
-    d.searchPath.add({physical: dir, logical});
-    for (let m of d.searchPath.modules())
-        d.processModule(m);
-
-    var plan = d.buildOrder();
-
-    var batch = new Batch();
-
-    batch.worker.addEventListener('message', (ev) => {
-        if (ev.data[0] != 'Feedback') console.log(ev.data);
-    });
+type CompileTaskOptions = {
+    continue?: boolean
+    jscoq?: boolean
+};
 
 
-    await batch.do(
-        msg => msg[0] == 'Boot',
-        ['LoadPkg', '+coq-all'],
-        msg => msg[0] === 'LibProgress' && msg[1].done
-    );
-
-    console.log('%c-- build worker started --', 'color: #f99');
-
-    for (let m of plan.slice(0, 10)) {
-        console.log(m);
-        let vfilename = `/lib/${m.logical.join('/')}.v`,
-            vofilename = `/lib/${m.logical.join('/')}.vo`;
-        await batch.do(
-            ['Init', {top_name: m.logical.join('.')}],
-            ['Put', vfilename, m.volume.fs.readFileSync(m.physical)],
-            ['Load', vfilename],       msg => msg[0] == 'Loaded',
-            ['Compile', vofilename],   msg => msg[0] == 'Compiled');
-    }
-}
+class BuildError { }
 
 
 
-export { Batch, build }
+export { Batch, BatchWorker, CompileTask, CompileTaskOptions, BuildError }
