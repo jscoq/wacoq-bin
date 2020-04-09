@@ -1,15 +1,13 @@
 // Build with
 //  parcel watch --target node src/cli.ts
 
-import fs from 'fs';
 import path from 'path';
 import commander from 'commander';
 import { FormatPrettyPrint } from './ui/format-pprint';
 import { IcoqPod } from './backend/core';
-import { CoqProject, SearchPathElement } from './build/project';
+import { JsCoqCompat } from './build/project';
 import { Workspace } from './build/workspace';
 import { Batch, CompileTask, BuildError } from './build/batch';
-
 
 
 
@@ -81,6 +79,7 @@ class CLI {
     workspace: Workspace
 
     progress: (msg: string, done?: boolean) => void
+    errors = false;
 
     constructor(opts) {
         this.opts = opts;
@@ -98,8 +97,10 @@ class CLI {
         var workspace = new Workspace();
         if (opts.outdir)
             workspace.outDir = opts.outdir;
-        if (!opts.nostdlib)
+        if (!opts.nostdlib) {
+            workspace.pkgDir = CLI.stdlibPkgDir();
             opts.loads.splice(0, 0, ...CLI.stdlibLoads());
+        }
         if (!opts.compile)
             await workspace.loadDeps(opts.loads);
         if (opts.workspace)
@@ -137,7 +138,8 @@ class CLI {
 
     async package(opts = this.opts) {
         var outdir = this.workspace.outDir,
-            f = opts.jscoq && CoqProject.backportToJsCoq;
+            prep  = opts.jscoq && JsCoqCompat.transpilePluginsJs,
+            postp = opts.jscoq && JsCoqCompat.backportManifest;
 
         this.workspace.searchPath.createIndex();  // to speed up coqdep
 
@@ -145,9 +147,15 @@ class CLI {
             this.progress(`[${pkgname}] `, false);
             var p = await this.workspace.projs[pkgname]
                     .toPackage(opts.package || path.join(outdir, pkgname),
-                               undefined, f);
-            await p.save();    
-            this.progress(`wrote ${p.pkg.filename}.`, true);
+                               undefined, prep, postp);
+            try{
+                await p.save();    
+                this.progress(`wrote ${p.pkg.filename}.`, true);
+            }
+            catch (e) {
+                this.progress(`error writing ${p.pkg.filename}:\n    ` + e);
+                this.errors = true;
+            }
         }
     }
 
@@ -157,6 +165,11 @@ class CLI {
 
     static stdlibLoads() {
         return [...Object.keys(this.stdlib().projects)].map(pkg => `+${pkg}`);
+    }
+
+    static stdlibPkgDir() {
+        // assumes cli is run from `dist/` directory.
+        return path.join(__dirname, '../bin/coq');
     }
 
 }
@@ -184,6 +197,8 @@ async function main() {
         .on('option:load', pkg => loads.push(...pkg.split(',')))
         .parse(process.argv);
 
+    if (opts.args[0] === 'build') opts.args.shift();
+
     if (opts.args.length > 0) {
         var a = !(opts.workspace || opts.project) && opts.args.shift();
         if (opts.args.length > 0) {
@@ -204,6 +219,8 @@ async function main() {
             await cli.compile();
         else
             await cli.package();
+
+        return cli.errors ? 1 : 0;
     }
     catch (e) {
         if (e instanceof BuildError) return 1;

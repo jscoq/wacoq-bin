@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { FSInterface } from './fsif';
-import { SearchPathElement, CoqProject, InMemoryVolume } from './project';
+import { SearchPathElement, CoqProject, InMemoryVolume, JsCoqCompat } from './project';
 
 
 
@@ -150,7 +150,8 @@ class CompileTask extends EventEmitter{
         
     toPackage(filename?: string, extensions?: string[]) {
         return this.outproj.toPackage(filename, extensions,
-            this.opts.jscoq ? CoqProject.backportToJsCoq : undefined);
+            this.opts.jscoq ? JsCoqCompat.transpilePluginsJs : undefined,
+            this.opts.jscoq ? JsCoqCompat.backportManifest : undefined);
     }
 
     _files(): SearchPathElement[] {

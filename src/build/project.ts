@@ -106,23 +106,32 @@ class CoqProject {
         return new CoqProject(this.name, store).fromDirectory('/');
     }
   
-    async toZip(withManifest?: string, extensions = ['.vo', '.cma']) {
+    async toZip(withManifest?: string, extensions = ['.vo', '.cma'],
+                prep: PackagePreprocess = (x=>[x])) {
         const JSZip = <any>await import('jszip') as JSZip,
               z = new JSZip();
 
         if (withManifest) z.file('coq-pkg.json', withManifest, this.opts.zip);
 
-        for (let mod of this.modulesByExts(extensions)) {
-            var ext = mod.physical.match(/[.][^.]+$/)[0];
-            z.file(mod.logical.join('/') + ext,
-                mod.volume.fs.readFileSync(mod.physical),
-                this.opts.zip);
+        for (let emod of this.modulesByExts(extensions)) {
+            for (let mod of prep(emod)) {
+                var ext = mod.ext || mod.physical.match(/[.][^.]+$/)[0];
+                try {
+                    z.file(mod.logical.join('/') + ext,
+                        mod.payload || mod.volume.fs.readFileSync(mod.physical),
+                        this.opts.zip);
+                }
+                catch (e) {
+                    console.warn(`skipped ${mod.physical} (${e})`);
+                }
+            }
         }
         return z;
     }
 
     async toPackage(filename: string = this.name, extensions?: string[],
-                    port: (manifest: any, archive?: string) => any = (x=>x))
+                    prep: PackagePreprocess = (x=>[x]),
+                    postp: PackagePostprocess = (x=>x))
             : Promise<PackageResult> {
 
         const {neatJSON} = await import('neatjson');
@@ -130,12 +139,13 @@ class CoqProject {
         if (!filename.match(/[.][^./]+$/)) filename += '.coq-pkg';
         
         var jsonfn = filename.replace(/[.][^./]+$/, '.json'),
-            manifest = neatJSON(port(this.createManifest(), filename), this.opts.json);
+            manifest = neatJSON(postp(this.createManifest(), filename), this.opts.json);
 
         return {
-            pkg: {filename, zip: await this.toZip(manifest, extensions)},
+            pkg: {filename, zip: await this.toZip(manifest, extensions, prep)},
             manifest: {filename: jsonfn, json: manifest},
             save() {
+                require('mkdirp').sync(path.dirname(this.manifest.filename));
                 fs.writeFileSync(this.manifest.filename, this.manifest.json);
                 return new Promise(async (resolve, reject) => {
                     this.pkg.zip.generateNodeStream()
@@ -145,32 +155,6 @@ class CoqProject {
                 });
             }
         }
-    }
-
-    /**
-     * Converts a package manifest to (older) jsCoq format.
-     * @param manifest original JSON manifest
-     * @param pkgfile `.coq-pkg` archive filename
-     */
-    static backportToJsCoq(manifest: any, pkgfile: string) {
-        var d: {[dp: string]: string[]} = {}
-        for (let k in manifest.modules) {
-            var [dp, mod] = k.split(/[.]([^.]+)$/); 
-            (d[dp] = d[dp] || []).push(mod); 
-        }
-        var pkgs = Object.entries(d).map(([a,b]) => ({ 
-            pkg_id: a.split('.'),
-            vo_files: b.map(x => [`${x}.vo`, null]),
-            cma_files: []
-        }));
-        var modDeps = {};
-        for (let k in manifest.modules) {
-            var deps = manifest.modules[k].deps;
-            if (deps) modDeps[k] = deps;
-        }
-        var archive = manifest.archive || (pkgfile && path.basename(pkgfile));
-        return {desc: manifest.name, deps: manifest.deps || [],
-                archive, pkgs, modDeps};
     }
 
 }
@@ -185,6 +169,9 @@ type PackageResult = {
     manifest: {filename: string, json: string},
     save():   Promise<PackageResult>
 };
+
+type PackagePreprocess = (mod: SearchPathElement) => (SearchPathElement & {ext?: string, payload?: Uint8Array})[];
+type PackagePostprocess = (manifest: any, archive?: string) => any;
 
 
 class SearchPath {
@@ -494,6 +481,53 @@ class ZipVolume extends StoreVolume {
 }
 
 
+class JsCoqCompat {
+
+    /**
+     * Runs js_of_ocaml to convert .cma bytecode files to .cma.js.
+     * @param mod 
+     */
+    static transpilePluginsJs(mod: SearchPathElement) {
+        if (mod.physical.endsWith('.cma')) {
+            const child_process = require('child_process'),
+                infile = mod.physical, outfile = `${infile}.js`;
+            // assumes volume is fsif_native...
+            child_process.execSync(`js_of_ocaml --wrap-with-fun= -o ${outfile} ${infile}`);
+            return [{...mod, payload: new Uint8Array(/*empty*/)},
+                    {...mod, physical: outfile, ext: '.cma.js'}];
+        }
+        else return [mod];
+    }
+
+    /**
+     * Converts a package manifest to (older) jsCoq format.
+     * @param manifest original JSON manifest
+     * @param pkgfile `.coq-pkg` archive filename
+     */
+    static backportManifest(manifest: any, pkgfile: string) {
+        var d: {[dp: string]: string[]} = {}
+        for (let k in manifest.modules) {
+            var [dp, mod] = k.split(/[.]([^.]+)$/); 
+            (d[dp] = d[dp] || []).push(mod); 
+        }
+        var pkgs = Object.entries(d).map(([a,b]) => ({ 
+            pkg_id: a.split('.'),
+            vo_files: b.map(x => [`${x}.vo`, null]),
+            cma_files: []
+        }));
+        var modDeps = {};
+        for (let k in manifest.modules) {
+            var deps = manifest.modules[k].deps;
+            if (deps) modDeps[k] = deps;
+        }
+        var archive = manifest.archive || (pkgfile && path.basename(pkgfile));
+        return {desc: manifest.name, deps: manifest.deps || [],
+                archive, pkgs, modDeps};
+    }
+
+}
+
+
 
 export { CoqProject, SearchPath, SearchPathElement,
-         PackageOptions, ModuleIndex, InMemoryVolume, ZipVolume }
+         PackageOptions, ModuleIndex, InMemoryVolume, ZipVolume, JsCoqCompat }

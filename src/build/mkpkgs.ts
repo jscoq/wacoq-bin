@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { CoqProject, SearchPath, ZipVolume } from './project';
+import { CoqProject, SearchPath, ZipVolume, JsCoqCompat } from './project';
 
 
 
@@ -102,13 +102,13 @@ async function main() {
 
     workspace.searchPath.createIndex();
 
-    var f = opts.jscoq && CoqProject.backportToJsCoq;
+    var f = opts.jscoq && JsCoqCompat.backportManifest;
 
     for (let pkgname in workspace.projs) {
         progress(`[${pkgname}] `, false);
         var {pkg} =await (await workspace.projs[pkg]
                           .toPackage(opts.package || path.join(outdir, pkg),
-                                     undefined, f)
+                                     undefined, undefined, f)
                          ).save();
         progress(`wrote ${pkg.filename}.`, true);
     }
