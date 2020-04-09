@@ -66,7 +66,7 @@ class IcoqPod extends EventEmitter {
     }
 
     async loadSources(uri: string, dirpath: string) {
-        var subdir = dirpath.replace(/[.]|(?<=[^/])$/g, '/');
+        var subdir = dirpath.replace(/[.]|([^/])$/g, '$1/');
         this.unzip(uri, `/src/${subdir}`);
     }
 

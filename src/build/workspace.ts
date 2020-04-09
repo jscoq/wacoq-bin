@@ -24,7 +24,7 @@ class Workspace {
 
     async loadDeps(pkgs: string[], baseDir = '') {
         for (let pkg of pkgs) {
-            pkg = pkg.replace(/^[+]/, this.pkgDir.replace(/(?<=[^/])$/, '/'));
+            pkg = pkg.replace(/^[+]/, this.pkgDir.replace(/([^/])$/, '$1/'));
             if (!pkg.match(/[.][^./]+$/)) pkg += '.coq-pkg';
 
             var proj = new CoqProject(pkg).fromDirectory('',

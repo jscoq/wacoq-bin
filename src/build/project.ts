@@ -387,7 +387,7 @@ abstract class StoreVolume implements FSInterface {
     }
 
     statSync(fp: string) {
-        var fpSlash = fp.replace(/(^|(?<=[^/]))$/, '/');
+        var fpSlash = fp.replace(/(^|([^/]))$/, '$2/');
         for (let k of this._files) {
             if (k.startsWith(fpSlash)) return {isDirectory: () => true};
         }
