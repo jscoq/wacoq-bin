@@ -21,7 +21,7 @@
   "dependencies": {
     "array-equal": "^1.0.0",
     "commander": "^5.0.0",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "jszip": "^3.2.2",
     "neatjson": "^0.8.3",
     "ocaml-wasm": "https://github.com/corwin-of-amber/ocaml-wasm/releases/download/wasm-4.08.1/ocaml-wasm-4.08.1.tar.gz",
