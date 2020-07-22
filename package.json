@@ -6,23 +6,22 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/jquery": "^3.3.33",
-    "@types/jszip": "^3.1.7",
+    "@types/jquery": "^3.5.0",
     "cssnano": "^4.1.10",
-    "typescript": "^3.8.3"
+    "typescript": "^3.9.7"
   },
   "browserslist": [
     "Chrome 78"
   ],
   "scripts": {
     "build": "true",
-    "postinstall": "node ./postinstall.js"
+    "postinstall": "[ -e postinstall.js ] && node ./postinstall.js"
   },
   "dependencies": {
     "array-equal": "^1.0.0",
-    "commander": "^5.0.0",
-    "jquery": "^3.5.0",
-    "jszip": "^3.3.0",
+    "commander": "^5.1.0",
+    "jquery": "^3.5.1",
+    "jszip": "^3.5.0",
     "neatjson": "^0.8.3",
     "ocaml-wasm": "https://github.com/corwin-of-amber/ocaml-wasm/releases/download/wasm-4.08.1/ocaml-wasm-4.08.1.tar.gz",
     "ocaml-wasm.4.08--num": "https://github.com/corwin-of-amber/ocaml-wasm--num/releases/download/wasm-v1.4/ocaml-wasm.4.08--num.tar.gz"
