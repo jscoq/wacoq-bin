@@ -7,4 +7,10 @@
 (alias
  (name coq)
  (deps
-   (package coq)))
+  (package coq)))
+
+(alias
+ (name wacoq)
+ (deps
+  src/backend/icoq.bc
+  src/backend/dllbyterun_stubs.wasm))

@@ -8,11 +8,12 @@ BUILD_CONTEXT = wacoq
 COQBUILDDIR_REL := vendor/coq
 COQBUILDDIR := $(current_dir)/_build/$(BUILD_CONTEXT)/$(COQBUILDDIR_REL)
 
-EMSDK = ~/var/ext/emsdk
-OCAML_INC = ${shell ocamlc -config-var standard_library}
+export EMSDK = $(HOME)/var/ext/emsdk
 
 
-.PHONY: bootstrap setup deps
+.PHONY: default bootstrap setup deps wacoq
+
+default: wacoq
 
 bootstrap: setup deps
 	
@@ -21,9 +22,8 @@ setup:
 
 deps: coq coq-serapi
 
-bin/coq/dllbyterun_stubs.wasm: src/backend/byterun_stubs.c
-	source $(EMSDK)/emsdk_env.sh && \
-	emcc -Os -s SIDE_MODULE=1 $< -o $@ -I${OCAML_INC}
+wacoq:
+	dune build @coq @wacoq
 
 
 dist-npm:
