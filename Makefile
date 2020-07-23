@@ -11,7 +11,7 @@ COQBUILDDIR := $(current_dir)/_build/$(BUILD_CONTEXT)/$(COQBUILDDIR_REL)
 export EMSDK = $(HOME)/var/ext/emsdk
 
 
-.PHONY: default bootstrap setup deps wacoq
+.PHONY: default bootstrap setup deps wacoq coq-pkgs
 
 default: wacoq
 
@@ -24,6 +24,12 @@ deps: coq coq-serapi
 
 wacoq:
 	dune build @coq @wacoq
+
+wacoq-only:
+	dune build @wacoq
+
+coq-pkgs:
+	node dist/cli.js src/build/metadata/coq-pkgs.json
 
 
 dist-npm:
@@ -44,7 +50,7 @@ dist-npm:
 
 COQ_SRC = vendor/coq
 
-COQ_BRANCH=v8.11
+COQ_BRANCH=v8.12
 COQ_REPOS=https://github.com/coq/coq.git
 
 COQ_PATCHES = timeout $(COQ_PATCHES|$(WORD_SIZE))
@@ -57,8 +63,6 @@ $(COQ_SRC):
 
 coq: $(COQ_SRC)
 	cd $(COQ_SRC) && ./configure -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no
-	dune build @vodeps $(DUNE_FLAGS)
-	cd $(COQ_SRC) && dune exec ./tools/coq_dune.exe $(DUNE_FLAGS) --context="$(BUILD_CONTEXT)" $(COQBUILDDIR)/.vfiles.d
 
 
 .PHONY: coq-serapi

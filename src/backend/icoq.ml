@@ -7,13 +7,11 @@ let wacoq_version = "0.11.0-alpha1"
 
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{
-    path_spec = VoPath {
-        unix_path = unix_path;
-        coq_path = Names.(DirPath.make @@ List.rev_map Id.of_string lib_path);
-        has_ml = AddRecML;
-        implicit = implicit
-      };
-    recursive = true;
+    unix_path = unix_path;
+    coq_path = Names.(DirPath.make @@ List.rev_map Id.of_string lib_path);
+    has_ml = true;
+    implicit = implicit;
+    recursive = true
   }
 
 let default_load_path = [make_coqpath "/lib" []]
@@ -26,7 +24,7 @@ let init params =
   Lib.init();
   Global.set_engagement Declarations.PredicativeSet;
   Global.set_VM false;
-  Global.set_native_compiler false;
+  Flags.set_native_compiler false;
   CWarnings.set_flags default_warning_flags;
 
   Stm.init_core ();
@@ -35,8 +33,9 @@ let init params =
   let dirpath = Libnames.dirpath_of_string params.top_name in
   let require_libs = List.map (fun lib -> (lib, None, Some false)) params.require_libs in
   let ndoc = { Stm.doc_type = Stm.Interactive (Stm.TopLogical dirpath);
-               require_libs = require_libs;
-               iload_path = default_load_path;
+               injections = List.map (fun x -> Stm.RequireInjection x) require_libs;
+               ml_load_path = [];
+               vo_load_path = default_load_path;
                stm_options = Stm.AsyncOpts.default_opts } in
   Stm.new_doc ndoc
 
@@ -53,7 +52,7 @@ module Interpreter = struct
   let _fresh_cnt = ref 1
 
   let version =
-    Coq_config.version, Coq_config.date, Coq_config.compile_date, Coq_config.caml_version, Coq_config.vo_magic_number
+    Coq_config.version, Coq_config.date, Coq_config.compile_date, Coq_config.caml_version, Coq_config.vo_version
 
   let here () =
     let (doc, states) = Option.get !state in (doc, List.hd states)
@@ -123,7 +122,7 @@ module Interpreter = struct
     Serapi.Serapi_goals.get_goals_gen ppx ~doc sid
 
   let refresh_load_path () =
-    List.iter Loadpath.add_coq_path default_load_path
+    List.iter Loadpath.add_vo_path default_load_path
 
   let requires ast =
     match ast.CAst.v with
@@ -181,7 +180,7 @@ let info_string () =
   let coqv, coqd, ccd, ccv, cmag = Interpreter.version              in
   let info1 = Printf.sprintf
               "waCoq %s, Coq %s/%4d (%s),\n  compiled on %s\n"
-              wacoq_version coqv cmag coqd ccd                      in
+              wacoq_version coqv (Int32.to_int cmag) coqd ccd       in
   let info2 = Printf.sprintf
               "OCaml %s (wasi-sdk)\n" ccv                           in
   info1 ^ info2
@@ -230,7 +229,7 @@ let handleRequest json_str =
       | Result.Error e -> [JsonExn e]
       | Result.Ok cmd -> wacoq_execute cmd
   with exn ->
-    let (e, info) = CErrors.push exn                   in
+    let (e, info) = Exninfo.capture exn                in
     [CoqExn (Loc.get_loc info, Stateid.get info, CErrors.iprint (e, info))]
   in
   Interpreter.cleanup () ;

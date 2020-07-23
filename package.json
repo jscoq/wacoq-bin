@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "true",
-    "postinstall": "[ -e postinstall.js ] && node ./postinstall.js"
+    "postinstall": "node ./etc/postinstall.js"
   },
   "dependencies": {
     "array-equal": "^1.0.0",

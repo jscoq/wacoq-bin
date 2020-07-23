@@ -4,10 +4,14 @@
 import path from 'path';
 import commander from 'commander';
 import { FormatPrettyPrint } from './ui/format-pprint';
-import { IcoqPod } from './backend/core';
 import { JsCoqCompat } from './build/project';
 import { Workspace } from './build/workspace';
 import { Batch, CompileTask, BuildError } from './build/batch';
+
+// @ts-ignore
+global.parcelRequire = undefined;  // bundle isolation :/
+
+import { IcoqPod } from './backend/core';
 
 
 
