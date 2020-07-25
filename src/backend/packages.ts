@@ -77,8 +77,11 @@ class PackageIndex {
 
     async loadModuleDeps(mods: string[]) {
         var pdeps = new Set<string>();
-        for (let m of this.computeModuleDeps(mods))
-            pdeps.add(this.moduleIndex.get(m).name);
+        for (let m of this.computeModuleDeps(mods)) {
+            var pkg = this.moduleIndex.get(m);
+            if (!pkg) console.warn(`missing package dependency for module '${m}'`);
+            pdeps.add(pkg.name);
+        }
         // consistent order
         return this.loadPkgs([...pdeps]);
     }
