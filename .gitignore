@@ -5,7 +5,8 @@ node_modules
 .merlin
 /vendor/coq
 /vendor/mathcomp
-/bin
+/bin/coq/*.json
+/bin/coq/*.coq-pkg
 /dist
 /public
 /staging
