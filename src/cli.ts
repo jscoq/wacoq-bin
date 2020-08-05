@@ -3,6 +3,7 @@
 
 import path from 'path';
 import commander from 'commander';
+import { version } from '../package.json';
 import { FormatPrettyPrint } from './ui/format-pprint';
 import { JsCoqCompat } from './build/project';
 import { Workspace } from './build/workspace';
@@ -108,13 +109,13 @@ class CLI {
         if (!opts.compile)
             await workspace.loadDeps(opts.loads);
         if (opts.workspace)
-            workspace.open(opts.workspace);
-        else if (opts.project)
-            workspace.openProjectDirect(opts.package || path.basename(opts.project),
-                                        opts.project, opts.top,
+            workspace.open(opts.workspace, opts.rootdir);
+        else if (opts.rootdir)
+            workspace.openProjectDirect(opts.package || path.basename(opts.rootdir),
+                                        opts.rootdir, opts.top,
                                         opts.dirpaths.split(/[, ]/));
         else {
-            console.error('what to build? specify either project or workspace.');
+            console.error('what to build? specify either rootdir or workspace.');
             throw new BuildError();
         }
         this.workspace = workspace;
@@ -147,13 +148,16 @@ class CLI {
 
         this.workspace.searchPath.createIndex();  // to speed up coqdep
 
+        var bundle = this.bundle(opts),
+            outfn = bundle ? undefined : opts.package;
+
         for (let pkgname in this.workspace.projs) {
             this.progress(`[${pkgname}] `, false);
             var p = await this.workspace.projs[pkgname]
-                    .toPackage(opts.package || path.join(outdir, pkgname),
+                    .toPackage(outfn || path.join(outdir, pkgname),
                                undefined, prep, postp);
-            try{
-                await p.save();    
+            try {
+                await p.save(bundle && bundle.manifest);    
                 this.progress(`wrote ${p.pkg.filename}.`, true);
             }
             catch (e) {
@@ -161,6 +165,18 @@ class CLI {
                 this.errors = true;
             }
         }
+
+        if (bundle) {
+            bundle.save();
+            this.progress(`wrote ${bundle.filename}.`, true);
+        }
+    }
+
+    bundle(opts = this.opts) {
+        if (this.workspace.bundleName)
+            return this.workspace.createBundle(path.join(this.workspace.outDir, this.workspace.bundleName));
+        if (opts.package && Object.keys(this.workspace.projs).length > 1)
+            return this.workspace.createBundle(opts.package);
     }
 
     static stdlib() {
@@ -186,9 +202,9 @@ async function main() {
 
     var opts = commander
         .name('wacoq')
-        .version('0.11.0', '-v, --version')
+        .version(version, '-v, --version')
         .option('--workspace <w.json>',       'build projects from specified workspace')
-        .option('--project <dir>',            'base directory for finding `.v` and `.vo` files')
+        .option('--rootdir <dir>',            'toplevel directory for finding `.v` and `.vo` files')
         .option('--top <name>',               'logical name of toplevel directory')
         .option('--dirpaths <a.b.c>',         'logical paths containing modules (comma separated)', '')
         .option('--package <f.coq-pkg>',      'create a package (default extension is `.coq-pkg`)')
@@ -204,13 +220,15 @@ async function main() {
     if (opts.args[0] === 'build') opts.args.shift();
 
     if (opts.args.length > 0) {
-        var a = !(opts.workspace || opts.project) && opts.args.shift();
+        if (!opts.workspace && opts.args[0].endsWith('.json'))
+            opts.workspace = opts.args.shift();
+        else if (!opts.rootdir)
+            opts.rootdir = opts.args.shift();
+
         if (opts.args.length > 0) {
             console.error('extraneous arguments: ', opts.args);
             return 1;
         }
-        if (a.endsWith('.json')) opts.workspace = a;
-        else opts.project = a;
     }
 
     opts.loads = loads;

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { neatJSON } from 'neatjson';
 import { CoqProject, SearchPath, ZipVolume } from './project';
 
 
@@ -8,14 +9,16 @@ class Workspace {
 
     projs: {[name: string]: CoqProject} = {}
     searchPath = new SearchPath()
+    bundleName: string
     pkgDir = "bin/coq"
     outDir = ""
 
-    open(jsonFilename: string) {
+    open(jsonFilename: string, rootdir?: string) {
         try {
             var json = JSON.parse(<any>fs.readFileSync(jsonFilename));
             if (json.builddir) this.outDir = json.builddir;
-            this.openProjects(json.projects, json.rootdir);
+            if (json.bundle) this.bundleName = json.bundle
+            this.openProjects(json.projects, rootdir || json.rootdir);
         }
         catch (e) {
             console.warn(`cannot open workspace '${jsonFilename}': ${e}`);
@@ -53,6 +56,19 @@ class Workspace {
             "": { prefix, 'dirpaths': dirPaths }
         }, baseDir);
         this.addProject(proj);
+    }
+
+    createBundle(filename: string) {
+        var name = path.basename(filename).replace(/[.]json$/, '');
+        if (!filename.match(/[.]json$/)) filename += '.json';
+
+        return {
+            manifest: {name, deps: [], pkgs: [], chunks: []},
+            filename,
+            save() {
+                fs.writeFileSync(this.filename, neatJSON(this.manifest));
+            }
+        };
     }
 
 }

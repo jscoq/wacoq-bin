@@ -5,17 +5,12 @@
   "main": "dist/index.html",
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "@types/jquery": "^3.5.0",
-    "cssnano": "^4.1.10",
-    "typescript": "^3.9.7"
-  },
-  "browserslist": [
-    "Chrome 78"
-  ],
   "scripts": {
-    "build": "true",
+    "build": "parcel build --target node src/cli.ts",
     "postinstall": "node ./etc/postinstall.js"
+  },
+  "bin": {
+    "wacoq": "./index.js"
   },
   "dependencies": {
     "array-equal": "^1.0.0",
@@ -26,8 +21,17 @@
     "ocaml-wasm": "https://github.com/corwin-of-amber/ocaml-wasm/releases/download/wasm-4.08.1/ocaml-wasm-4.08.1.tar.gz",
     "ocaml-wasm.4.08--num": "https://github.com/corwin-of-amber/ocaml-wasm--num/releases/download/wasm-v1.4/ocaml-wasm.4.08--num.tar.gz"
   },
+  "devDependencies": {
+    "@types/jquery": "^3.5.0",
+    "@types/node": "^14.0.27",
+    "cssnano": "^4.1.10",
+    "typescript": "^3.9.7"
+  },
   "bundledDependencies": [
     "jszip",
     "neatjson"
+  ],
+  "browserslist": [
+    "Chrome 78"
   ]
 }
