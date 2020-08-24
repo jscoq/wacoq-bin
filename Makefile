@@ -36,11 +36,11 @@ dist-npm:
 	rm -rf staging
 	parcel build -d staging/dist --no-source-maps src/index.html
 	parcel build -d staging/dist --no-source-maps src/worker.ts
-	cp package.json staging/
+	cp package.json index.js staging/
 	mkdir staging/bin && ln -s ../../bin/{icoq.bc,coq} staging/bin/
-	cp etc/postinstall.js staging/
+	mkdir staging/etc && cp etc/postinstall.js staging/etc
 	tar zchf wacoq-bin.tar.gz -C staging \
-		./package.json ./dist ./bin	./postinstall.js
+		./package.json ./index.js ./dist ./bin ./etc
 
 ########################################################################
 # Externals

@@ -1,9 +1,9 @@
 {
   "name": "wacoq-bin",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.12.0-rc1",
+  "description": "WASM Binaries of the Coq Proof Assistant (for jsCoq)",
   "main": "dist/index.html",
-  "author": "",
+  "author": "corwin-of-amber",
   "license": "ISC",
   "scripts": {
     "build": "parcel build --target node src/cli.ts",
@@ -13,13 +13,13 @@
     "wacoq": "./index.js"
   },
   "dependencies": {
+    "@ocaml-wasm/4.08--num": "^1.4.0",
     "array-equal": "^1.0.0",
     "commander": "^5.1.0",
     "jquery": "^3.5.1",
     "jszip": "^3.5.0",
     "neatjson": "^0.8.3",
-    "ocaml-wasm": "https://github.com/corwin-of-amber/ocaml-wasm/releases/download/wasm-4.08.1/ocaml-wasm-4.08.1.tar.gz",
-    "ocaml-wasm.4.08--num": "https://github.com/corwin-of-amber/ocaml-wasm--num/releases/download/wasm-v1.4/ocaml-wasm.4.08--num.tar.gz"
+    "ocaml-wasm": "^4.8.1-2"
   },
   "devDependencies": {
     "@types/jquery": "^3.5.0",
