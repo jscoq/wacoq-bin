@@ -16,18 +16,25 @@ let make_coqpath ?(implicit=true) unix_path lib_path =
 
 let default_load_path = [make_coqpath "/lib" []]
 
-let default_warning_flags = "-notation-overridden"
+let default_warning_flags = "-notation-overridden"  (* for ssreflect :/ *)
+
+let core_inited = ref false
 
 let init params =
   (* Coqinit.set_debug (); *)
 
-  Lib.init();
-  Global.set_engagement Declarations.PredicativeSet;
-  Global.set_VM false;
-  Flags.set_native_compiler false;
-  CWarnings.set_flags default_warning_flags;
+  if not !core_inited then (
+    Global.set_engagement Declarations.PredicativeSet;
+    Global.set_VM false;
+    Global.set_native_compiler false;  (* need both? *)
+    Flags.set_native_compiler false;
+    core_inited := true
+  );
 
+  Lib.init ();
   Stm.init_core ();
+
+  CWarnings.set_flags default_warning_flags;  (* Lib.init resets warning flags? *)
 
   (* Create an initial state of the STM *)
   let dirpath = Libnames.dirpath_of_string params.top_name in

@@ -27,7 +27,7 @@ class OCamlExecutable extends ExecCore {
         var bin = this.opts.binDir || '../bin';
 
         for (let p of this.preloads())
-            await this.proc.dyld.preload(p.name, p.uri, p.reloc);
+            await this.proc.dyld.preload(p.name, p.uri);
 
         await this.start(`${bin}/ocaml/ocamlrun.wasm`, ['ocamlrun', bytecodeFile, ...args]);
 
@@ -38,14 +38,7 @@ class OCamlExecutable extends ExecCore {
     preloads() {
         var bin = this.opts.binDir || '../bin';
         return ['dllcamlstr', 'dllunix', 'dllthreads', 'dllnums'].map(b => ({
-            name: `${b}.so`, uri: `${bin}/ocaml/${b}.wasm`,
-            reloc: {data: ['caml_atom_table'], func: [
-                'caml_alloc', 'caml_alloc_small', 'caml_alloc_custom',
-                'caml_copy_nativeint', 'caml_copy_string', 'caml_register_custom_operations',
-                'memset', 'memmove', 'caml_hash_mix_uint32', 'caml_serialize_int_4',
-                'caml_serialize_block_4', 'caml_deserialize_uint_4', 'caml_deserialize_block_4',
-                'caml_invalid_argument', 'caml_named_value', 'caml_raise', 'snprintf'
-            ]}
+            name: `${b}.so`, uri: `${bin}/ocaml/${b}.wasm`
         }));       
     }
 
