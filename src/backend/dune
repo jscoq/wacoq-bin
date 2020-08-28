@@ -8,8 +8,8 @@
 
 (rule
  (targets dllbyterun_stubs.wasm)
- (deps byterun_stubs.c (env_var EMSDK))
+ (deps byterun_stubs.c)
  (action
-  (bash "source $EMSDK/emsdk_env.sh && \
-	emcc -Os -s SIDE_MODULE=1 byterun_stubs.c -o %{targets} \
-         -I%{ocaml-config:standard_library}")))
+  (bash "/opt/wasi-sdk/bin/clang -target wasm32-unknown-emscripten -fPIC \
+	  byterun_stubs.c -o %{targets} -nostdlib -Wl,--shared -Wl,--export-all \
+      -I%{ocaml-config:standard_library}")))
