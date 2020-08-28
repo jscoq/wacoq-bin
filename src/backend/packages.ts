@@ -23,7 +23,11 @@ class PackageIndex {
         return this;
     }
 
-    add(pkg: PackageManifest) {
+    add(pkg: PackageManifest, uri?: string, name?: string) {
+        if (uri && !pkg.archive) {
+            pkg.archive = name ? uri.replace(/[^/]*$/, `${name}.coq-pkg`)
+                               : uri.replace(/[.]json$/, '.coq-pkg');
+        }
         this.pkgs[pkg.name] = pkg;
         for (let mod in pkg.modules || {})
             this.moduleIndex.set(mod, pkg);
@@ -44,9 +48,11 @@ class PackageIndex {
     loadInfo(uris: string[]) {
         return Promise.all(uris.map(async uri => {
             var manifest = await (await fetch(uri)).json();
-            if (!manifest.archive)
-                manifest.archive = uri.replace(/[.]json$/, '.coq-pkg');
-            this.add(manifest);
+            if (manifest.chunks)
+                for (let c of manifest.chunks)
+                    this.add(c, uri, c.name);
+            else 
+                this.add(manifest, uri);
         }));
     }
 

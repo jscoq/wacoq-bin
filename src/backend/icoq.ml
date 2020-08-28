@@ -16,12 +16,23 @@ let make_coqpath ?(implicit=true) unix_path lib_path =
 
 let default_load_path = [make_coqpath "/lib" []]
 
+let native_load_path coqlib =
+  List.map 
+    (fun subdir -> make_coqpath (coqlib ^ subdir) ["Coq"])
+    ["/theories"; "/plugins"]
+
+let init_load_path coqlib_opt =
+  match coqlib_opt with
+  | Some coqlib -> native_load_path coqlib
+  | _ -> default_load_path
+
 let default_warning_flags = "-notation-overridden"  (* for ssreflect :/ *)
 
 let core_inited = ref false
 
 let init params =
-  (* Coqinit.set_debug (); *)
+  if (params.debug.coq) then
+    Coqinit.set_debug ();
 
   if not !core_inited then (
     Global.set_engagement Declarations.PredicativeSet;
@@ -42,7 +53,7 @@ let init params =
   let ndoc = { Stm.doc_type = Stm.Interactive (Stm.TopLogical dirpath);
                injections = List.map (fun x -> Stm.RequireInjection x) require_libs;
                ml_load_path = [];
-               vo_load_path = default_load_path;
+               vo_load_path = init_load_path params.coqlib;
                stm_options = Stm.AsyncOpts.default_opts } in
   Stm.new_doc ndoc
 
@@ -242,11 +253,20 @@ let handleRequest json_str =
   Interpreter.cleanup () ;
   serialize resp
 
+let handleRequestsFromStdin () =
+  try
+    while true do
+      emit @@ handleRequest @@ Stdlib.read_line ()
+    done
+  with End_of_file -> ()
 
-let _ =
+
+let () =
   try
     emit @@ serialize [CoqInfo (info_string ())] ;
     ignore @@ Feedback.add_feeder fb_handler ;
-    Callback.register "wacoq_post" handleRequest
+    Callback.register "wacoq_post" handleRequest ;
+    if (Array.length Sys.argv > 1) && Sys.argv.(1) = "-stdin" then
+      handleRequestsFromStdin ()
   with CErrors.UserError(Some x, y) ->
     print_endline @@ "error! " ^ x ^ ": " ^ Pp.string_of_ppcmds y

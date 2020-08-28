@@ -35,6 +35,9 @@ end
 type startup_params =
   [%import: Icoq_init.startup_params]
   [@@deriving yojson]
+and debug_params =
+  [%import: Icoq_init.debug_params]
+  [@@deriving yojson]
 
 type search_query =
   | All
