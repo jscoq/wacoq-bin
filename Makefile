@@ -29,7 +29,7 @@ wacoq-only:
 	dune build @wacoq
 
 coq-pkgs:
-	node dist/cli.js src/build/metadata/coq-pkgs.json
+	node dist/cli.js --nostdlib src/build/metadata/coq-pkgs.json
 
 
 dist-npm:
@@ -50,7 +50,7 @@ dist-npm:
 
 COQ_SRC = vendor/coq
 
-COQ_BRANCH=v8.12
+COQ_BRANCH=V8.12.0
 COQ_REPOS=https://github.com/coq/coq.git
 
 COQ_PATCHES = timeout $(COQ_PATCHES|$(WORD_SIZE))
@@ -62,6 +62,7 @@ $(COQ_SRC):
 	cd $@ && git apply ${foreach p,$(COQ_PATCHES),$(current_dir)/etc/patches/$p.patch}
 
 coq: $(COQ_SRC)
+	eval `opam env --switch=$(BUILD_CONTEXT)` && \
 	cd $(COQ_SRC) && ./configure -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no
 
 

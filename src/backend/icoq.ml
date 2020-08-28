@@ -127,7 +127,6 @@ module Interpreter = struct
     let (doc, _) = Option.get !state in
     let doc, _ = Stm.edit_at ~doc (prev sid) in
     let new_tip = Stm.get_current_state ~doc in
-    print_endline @@ "Cancel " ^ Stateid.to_string sid;
     back doc new_tip;
     new_tip
     

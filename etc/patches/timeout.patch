@@ -1,14 +1,16 @@
 diff --git a/kernel/byterun/coq_interp.c b/kernel/byterun/coq_interp.c
-index 7588c1c..77d03dd 100644
+index 7588c1c..105030a 100644
 --- a/kernel/byterun/coq_interp.c
 +++ b/kernel/byterun/coq_interp.c
-@@ -1844,3 +1844,6 @@ value coq_interprete_byte(value* argv, int argn){
+@@ -1844,3 +1844,8 @@ value coq_interprete_byte(value* argv, int argn){
  value coq_eval_tcode (value tcode, value t, value g, value e) {
    return coq_interprete_ml(tcode, Val_unit, t, g, e, 0);
  }
 +
 +// jsCoq Stub; actual implementation is in coq-js/js_stub/interrupt.js
 +value interrupt_pending() { return Val_false; }
++// @@ this should not be here
++value wacoq_emit(value str) { printf("%s\n", (const char *)str); fflush(stdout); return Val_unit; }
 diff --git a/lib/control.ml b/lib/control.ml
 index bb42b57..51f87d4 100644
 --- a/lib/control.ml

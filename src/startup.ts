@@ -2,22 +2,29 @@
 //  parcel watch --hmr-hostname=localhost --public-url '.' src/index.html src/worker.ts &
 
 import { PackageIndex } from './backend/packages';
+import { IcoqSubprocess } from './backend/subproc';
 import { InteractiveConsole } from './ui/console';
 
 
 
-function main() {
+function main(opts: any = {}) {
     var startTime = +new Date(),
         elapsed = () => +new Date() - startTime;
 
-    function milestone(caption) {
+    function milestone(caption: string) {
         console.log(`%c${caption} (+${elapsed()}ms)`, 'color: #99f');
     }
 
-    var worker = new Worker(0 || './worker.js');  // bypass Parcel (fails to build worker at the moment)
+    var worker: Worker | IcoqSubprocess, coqlib: string;
+    if (opts.subproc) {
+        worker = new IcoqSubprocess();
+        coqlib = worker.binDir + '/coqlib';
+    }
+    else {
+        worker = new Worker(0 || './worker.js');  // bypass Parcel (fails to build worker at the moment)
+    }
 
-
-    function sendCommand(cmd) {
+    function sendCommand(cmd: any) {
         worker.postMessage(JSON.stringify(cmd));
     }
 
@@ -32,7 +39,7 @@ function main() {
             consl.showProgress('Starting', {done: false});  break;
         case 'Boot':
             milestone('Boot');
-            sendCommand(['Init', {}]); break;
+            sendCommand(['Init', {coqlib}]); break;
         case 'Ready':
             milestone('Ready');
             consl.showProgress('Starting', {done: true});
@@ -87,7 +94,7 @@ function main() {
     });
 
     var pi = new PackageIndex().attach(worker);
-    pi.populate(['init', 'coq-base', 'coq-collections', 'coq-arith', 'coq-reals', 'mathcomp'], '../bin/coq');
+    pi.populate(['coq'], '../bin/coq');
     //pi.loadInfo(['/scratch/fcsl-pcm.json']);
 
     Object.assign(window, {worker, pi});

@@ -8,7 +8,7 @@ class PackageIndex {
 
     moduleIndex: Map<string, PackageManifest>
 
-    worker: Worker
+    worker: WorkerInterface
 
     constructor() {
         this.pkgs = {};
@@ -17,7 +17,7 @@ class PackageIndex {
         this.moduleIndex = new Map();
     }
 
-    attach(worker: Worker) {
+    attach(worker: WorkerInterface) {
         this.worker = worker;
         worker.addEventListener('message', ev => this.handleEvent(ev));
         return this;
@@ -121,6 +121,10 @@ class PackageIndex {
 
 type PackageManifest = {name: string, deps?: string[], modules: any[], archive?: string};
 
+type WorkerInterface = {
+    addEventListener(ev: string, cb: any): void;
+    postMessage(msg: any): void;
+};
 
 class Future<T> {
     promise: Promise<T>

@@ -130,7 +130,6 @@ class IcoqPod extends EventEmitter {
         this.core.proc.dyld.preload(
             'dllbyterun_stubs.so', `${this.binDir}/coq/dllbyterun_stubs.wasm`,
             {
-                data: ['caml_atom_table'], func: ['caml_copy_double'],
                 js: {
                     wacoq_emit_js: (s:number) => this._answer(s)
                 }
@@ -184,7 +183,7 @@ class IO {
     // boilerplate
     async _fetchWithProgress(uri: string, progress: (p: any) => void) {
         var response = await fetch(uri),
-            total = +response.headers.get('Content-Length'),
+            total = +response.headers.get('Content-Length') || 10,
             r = response.body.getReader(), chunks = [], downloaded = 0;
         for(;;) {
             var {value, done} = await r.read();

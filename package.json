@@ -6,7 +6,7 @@
   "author": "corwin-of-amber",
   "license": "ISC",
   "scripts": {
-    "build": "parcel build --target node src/cli.ts",
+    "build": "parcel build src/worker.ts && etc/build-node.sh",
     "postinstall": "node ./etc/postinstall.js"
   },
   "bin": {
@@ -16,6 +16,7 @@
     "@ocaml-wasm/4.08--num": "^1.4.0",
     "array-equal": "^1.0.0",
     "commander": "^5.1.0",
+    "find-up": "^5.0.0",
     "jquery": "^3.5.1",
     "jszip": "^3.5.0",
     "neatjson": "^0.8.3",
