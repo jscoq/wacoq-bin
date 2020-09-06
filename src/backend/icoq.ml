@@ -14,17 +14,17 @@ let make_coqpath ?(implicit=true) unix_path lib_path =
     recursive = true
   }
 
-let default_load_path = [make_coqpath "/lib" []]
-
 let native_load_path coqlib =
   List.map 
     (fun subdir -> make_coqpath (coqlib ^ subdir) ["Coq"])
     ["/theories"; "/plugins"]
 
-let init_load_path coqlib_opt =
-  match coqlib_opt with
-  | Some coqlib -> native_load_path coqlib
-  | _ -> default_load_path
+let init_load_path coqlib_opt load_path =
+  (match coqlib_opt with
+   | Some coqlib -> native_load_path coqlib
+   | _ -> [])
+  @
+  List.map (fun pel -> make_coqpath pel []) load_path
 
 let default_warning_flags = "-notation-overridden"  (* for ssreflect :/ *)
 
@@ -53,7 +53,7 @@ let init params =
   let ndoc = { Stm.doc_type = Stm.Interactive (Stm.TopLogical dirpath);
                injections = List.map (fun x -> Stm.RequireInjection x) require_libs;
                ml_load_path = [];
-               vo_load_path = init_load_path params.coqlib;
+               vo_load_path = init_load_path params.coqlib params.load_path;
                stm_options = Stm.AsyncOpts.default_opts } in
   Stm.new_doc ndoc
 
@@ -65,6 +65,7 @@ module Interpreter = struct
 
   let state : (Stm.doc * Stateid.t list) option ref = ref None
 
+  let load_path : Loadpath.vo_path list ref = ref []
   let error : Stateid.t option ref = ref None
 
   let _fresh_cnt = ref 1
@@ -139,7 +140,7 @@ module Interpreter = struct
     Serapi.Serapi_goals.get_goals_gen ppx ~doc sid
 
   let refresh_load_path () =
-    List.iter Loadpath.add_vo_path default_load_path
+    List.iter Loadpath.add_vo_path !load_path
 
   let requires ast =
     match ast.CAst.v with
@@ -153,6 +154,7 @@ module Interpreter = struct
     | _ -> ()
 
   let init params = 
+    load_path := init_load_path params.coqlib params.load_path;
     let doc, initial = init params in
     state := Some (doc, [initial]);
     initial

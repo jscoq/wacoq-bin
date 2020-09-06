@@ -8,7 +8,7 @@ BUILD_CONTEXT = wacoq
 COQBUILDDIR_REL := vendor/coq
 COQBUILDDIR := $(current_dir)/_build/$(BUILD_CONTEXT)/$(COQBUILDDIR_REL)
 
-export EMSDK = $(HOME)/var/ext/emsdk
+PACKAGE_VERSION = ${shell node -p 'require("./package.json").version'}
 
 
 .PHONY: default bootstrap setup deps wacoq coq-pkgs
@@ -28,19 +28,27 @@ wacoq:
 wacoq-only:
 	dune build @wacoq
 
-coq-pkgs:
+dist/cli.js:
+	parcel build --target node src/cli.ts
+
+coq-pkgs: dist/cli.js
 	node dist/cli.js --nostdlib src/build/metadata/coq-pkgs.json
 
+install:
+	dune build -p coq
+	dune install coq
 
 dist-npm:
 	rm -rf staging
-	parcel build -d staging/dist --no-source-maps src/index.html
+	parcel build -d staging/dist --target node --no-source-maps src/cli.ts
+	parcel build -o staging/dist/subproc.js --target node --no-source-maps src/backend/subproc/index.ts
 	parcel build -d staging/dist --no-source-maps src/worker.ts
 	cp package.json index.js staging/
 	mkdir staging/bin && ln -s ../../bin/{icoq.bc,coq} staging/bin/
 	mkdir staging/etc && cp etc/postinstall.js staging/etc
-	tar zchf wacoq-bin.tar.gz -C staging \
-		./package.json ./index.js ./dist ./bin ./etc
+	tar zchf wacoq-bin-$(PACKAGE_VERSION).tar.gz \
+	    --exclude='coqlib/**' --exclude='*.*.js' \
+	    -C staging ./package.json ./index.js ./dist ./bin ./etc
 
 ########################################################################
 # Externals

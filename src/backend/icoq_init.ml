@@ -5,6 +5,7 @@ type startup_params =
   ; implicit_libs: bool          [@default true]
   ; require_libs: string list    [@default ["Coq.Init.Prelude"]]
   ; coqlib: string option        [@default None]
+  ; load_path: string list       [@default ["/lib"]]
   ; debug: debug_params          [@default {coq=false; stm=false}]
   }
 and debug_params =
