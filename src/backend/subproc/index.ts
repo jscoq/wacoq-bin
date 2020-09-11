@@ -29,8 +29,11 @@ class SubprocessWorker extends EventEmitter {
             }
             catch (e) { console.error("(from subprocess)", e, ln.toString('utf-8')); }
         });
-        window.addEventListener('beforeunload', () => this.cp.stdin.end());
         setTimeout(() => this.emit('message', {data: ['Boot']}), 0);
+    }
+
+    end() {
+        this.cp.stdin.end();
     }
 
     addEventListener(event: "message", handler: (ev: {data: any[]}) => void) {
@@ -61,9 +64,13 @@ class IcoqSubprocess extends SubprocessWorker {
     binDir: string
     packages: PackageDirectory
 
-    constructor() {
-        var bin = IcoqSubprocess.findBinDir();
-        super("ocamlrun", [bin + '/../icoq.bc', '-stdin'], {
+    constructor(options: IcoqSubprocessOptions) {
+        options = {...IcoqSubprocess.DEFAULT_OPTIONS, ...options};
+
+        var bin = IcoqSubprocess.findBinDir(),
+            [prog, args] = IcoqSubprocess.findExecutable(bin, options.mode);
+
+        super(prog, [...args, '-stdin'], {
             env: {
                 PATH: process.env.PATH,
                 CAML_LD_LIBRARY_PATH:
@@ -72,20 +79,14 @@ class IcoqSubprocess extends SubprocessWorker {
         });
         this.binDir = bin;
         this.packages = new PackageDirectory('/tmp/lib');
+        this.packages.on('message', ev => this.emit('message', ev));
     }
 
     postMessage(msg: string | [string, ...any[]]) {
         switch (msg[0]) {
-        case 'LoadPkg': this.loadPackages(msg[1]); return;
+        case 'LoadPkg': this.packages.loadPackages(msg[1]); return;
         }
         super.postMessage(msg);
-    }
-
-    async loadPackages(uris: string | string[]) {
-        uris = await this.packages.loadPackages(uris);
-        for (let uri of uris)
-            this.emit('message', {data: ['LibProgress', {uri, done: true}]});
-        this.emit('message', {data: ['LoadedPkg', uris]});
     }
 
     static findBinDir() {
@@ -94,8 +95,26 @@ class IcoqSubprocess extends SubprocessWorker {
         assert(bin, 'bin/coq not found');
         return bin;
     }
+
+    static findExecutable(binDir: string,
+                          mode: IcoqSubprocessMode) : [string, string[]] {
+        var byte = `${binDir}/../icoq.bc`,
+            exe = `${binDir}/../icoq.exe`;
+        switch (mode) {
+        case "byte":   return ["ocamlrun", [byte]];
+        case "native": return [exe, []];
+        case "best":
+            return fs.existsSync(exe) ? [exe, []] : ["ocamlrun", [byte]];
+        default:
+            assert(false, `invalid mode '${mode}'`);
+        }
+    }
+
+    static DEFAULT_OPTIONS: IcoqSubprocessOptions = {mode: "best"};
 }
 
+type IcoqSubprocessMode = "byte" | "native" | "best";
+type IcoqSubprocessOptions = {mode?: IcoqSubprocessMode};
 
 
 export { IcoqSubprocess }
