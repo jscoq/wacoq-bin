@@ -28,33 +28,37 @@ let init_load_path coqlib_opt load_path =
 
 let default_warning_flags = "-notation-overridden"  (* for ssreflect :/ *)
 
-let core_inited = ref false
+let core_config : startup_config option ref = ref None
 
-let init params =
-  if (params.debug.coq) then
+let init config =
+  if (config.debug.coq) then
     Coqinit.set_debug ();
 
-  if not !core_inited then (
-    Global.set_engagement Declarations.PredicativeSet;
-    Global.set_VM false;
-    Global.set_native_compiler false;  (* need both? *)
-    Flags.set_native_compiler false;
-    core_inited := true
-  );
-
   Lib.init ();
+
+  Global.set_engagement Declarations.PredicativeSet;
+  Global.set_VM false;
+  Global.set_native_compiler false;
+  Flags.set_native_compiler false;  (* need both? *)
+  CWarnings.set_flags default_warning_flags;
+
   Stm.init_core ();
+  core_config := Some config
 
-  CWarnings.set_flags default_warning_flags;  (* Lib.init resets warning flags? *)
 
+let start config vo_load_path ml_load_path =
   (* Create an initial state of the STM *)
-  let dirpath = Libnames.dirpath_of_string params.top_name in
-  let require_libs = List.map (fun lib -> (lib, None, Some false)) params.require_libs in
-  let ndoc = { Stm.doc_type = Stm.Interactive (Stm.TopLogical dirpath);
-               injections = List.map (fun x -> Stm.RequireInjection x) require_libs;
-               ml_load_path = [];
-               vo_load_path = init_load_path params.coqlib params.load_path;
-               stm_options = Stm.AsyncOpts.default_opts } in
+  let doc_type = match config.mode with
+    | Interactive -> let dp = Libnames.dirpath_of_string config.top_name in 
+                     Stm.Interactive (Stm.TopLogical dp) 
+    | Vo ->          Stm.VoDoc config.top_name
+  in
+  let require_libs = List.map (fun lib -> 
+    Stm.RequireInjection(lib, None, Some false)) config.lib_init in
+  let ndoc = Stm.{ doc_type;
+                   injections = require_libs;
+                   vo_load_path; ml_load_path;
+                   stm_options = Stm.AsyncOpts.default_opts } in
   Stm.new_doc ndoc
 
 
@@ -153,9 +157,13 @@ module Interpreter = struct
     | Some sid -> error := None ; ignore @@ cancel ~sid
     | _ -> ()
 
-  let init params = 
-    load_path := init_load_path params.coqlib params.load_path;
-    let doc, initial = init params in
+  let init = init
+
+  let new_doc config =
+    let core = Option.get !core_config in
+    load_path := init_load_path core.coqlib config.lib_path;
+
+    let doc, initial = start config !load_path [] in
     state := Some (doc, [initial]);
     initial
 
@@ -217,7 +225,8 @@ let add_or_pend ?from ?newid stm ~resolve =
 
 
 let wacoq_execute = function
-  | Init params ->             [Ready (Interpreter.init params)]
+  | Init config ->             Interpreter.init config; []
+  | NewDoc config ->           [Ready (Interpreter.new_doc config)]
   | Add (from, newid, stm, resolve) ->  
                                add_or_pend ?from ?newid stm ~resolve
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []

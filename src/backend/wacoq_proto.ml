@@ -32,11 +32,18 @@ module Goals = struct
 
 end
 
-type startup_params =
-  [%import: Icoq_init.startup_params]
+type startup_config =
+  [%import: Icoq_init.startup_config]
   [@@deriving yojson]
-and debug_params =
-  [%import: Icoq_init.debug_params]
+and debug_config =
+  [%import: Icoq_init.debug_config]
+  [@@deriving yojson]
+
+type doc_config =
+  [%import: Icoq_init.doc_config]
+  [@@deriving yojson]
+and top_mode =
+  [%import: Icoq_init.top_mode]
   [@@deriving yojson]
 
 type search_query =
@@ -47,7 +54,8 @@ type search_query =
   [@@deriving yojson]
 
 type wacoq_cmd =
-  | Init    of startup_params
+  | Init    of startup_config
+  | NewDoc  of doc_config
   | Add     of Stateid.t option * Stateid.t option * string * bool
   | Exec    of Stateid.t
   | Cancel  of Stateid.t

@@ -64,7 +64,7 @@ class IcoqSubprocess extends SubprocessWorker {
     binDir: string
     packages: PackageDirectory
 
-    constructor(options: IcoqSubprocessOptions) {
+    constructor(options: IcoqSubprocessOptions = {}) {
         options = {...IcoqSubprocess.DEFAULT_OPTIONS, ...options};
 
         var bin = IcoqSubprocess.findBinDir(),

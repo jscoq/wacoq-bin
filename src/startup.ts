@@ -39,7 +39,8 @@ function main(opts: any = {}) {
             consl.showProgress('Starting', {done: false});  break;
         case 'Boot':
             milestone('Boot');
-            sendCommand(['Init', {coqlib}]); break;
+            sendCommand(['Init', {coqlib}]);
+            sendCommand(['NewDoc', {}]);  break;
         case 'Ready':
             milestone('Ready');
             consl.showProgress('Starting', {done: true});
