@@ -62,6 +62,12 @@ let start config vo_load_path ml_load_path =
   Stm.new_doc ndoc
 
 
+let coq_exn_info exn =
+    let (e, info) = Exninfo.capture exn in
+    let pp_exn    = CErrors.iprint (e, info) in
+    CoqExn (Loc.get_loc info, Stateid.get info, pp_exn)
+
+
 (*
  * Main Coq interaction entry point
  *)
@@ -77,8 +83,22 @@ module Interpreter = struct
   let version =
     Coq_config.version, Coq_config.date, Coq_config.compile_date, Coq_config.caml_version, Coq_config.vo_version
 
+  let init = init
+
+  let new_doc config =
+    let core = Option.get !core_config in
+    load_path := init_load_path core.coqlib config.lib_path;
+
+    let doc, initial = start config !load_path [] in
+    state := Some (doc, [initial]);
+    initial
+
   let here () =
     let (doc, states) = Option.get !state in (doc, List.hd states)
+
+  let at sid =
+    let doc, tip = here () in
+    (doc, if sid = Stateid.dummy then tip else sid)
 
   let tip () = let (_, tip) = here () in tip
 
@@ -152,20 +172,19 @@ module Interpreter = struct
       Some ((prefix, module_refs))
     | _ -> None
     
+  let query sid query ~route =
+    let doc, sid = at sid in
+    let pa = Pcoq.Parsable.make (Stream.of_string query) in
+    Stm.query ~doc ~at:sid ~route pa
+
+  let inspect sid q =
+    let doc, sid = at sid in
+    Inspect.inspect ~doc sid q
+
   let cleanup () =
     match !error with
     | Some sid -> error := None ; ignore @@ cancel ~sid
     | _ -> ()
-
-  let init = init
-
-  let new_doc config =
-    let core = Option.get !core_config in
-    load_path := init_load_path core.coqlib config.lib_path;
-
-    let doc, initial = start config !load_path [] in
-    state := Some (doc, [initial]);
-    initial
 
 end
 
@@ -224,16 +243,28 @@ let add_or_pend ?from ?newid stm ~resolve =
     [Added (Interpreter.add_ast ?from ?newid ast, ast.CAst.loc)]
 
 
+let capture_exn ?sid ?(rid=0) ?(status=fun c -> []) op =
+  let sid = Option.default Stateid.dummy sid in
+  let feed contents = Feedback { doc_id = 0; span_id = sid; route = rid; contents } in
+  let fin (c: Feedback.feedback_content) = List.map feed (status c) in
+  try op () @ fin Complete
+  with exn ->
+    let CoqExn(loc,_,msg) = coq_exn_info exn [@@warning "-8"] in
+    [feed (Message(Error, loc, msg))] @ fin Incomplete
+
+
 let wacoq_execute = function
   | Init config ->             Interpreter.init config; []
   | NewDoc config ->           [Ready (Interpreter.new_doc config)]
-  | Add (from, newid, stm, resolve) ->  
-                               add_or_pend ?from ?newid stm ~resolve
+  | Add (from, newid, stm, resolve) -> 
+                               capture_exn ?sid:newid (fun () -> 
+                                 add_or_pend ?from ?newid stm ~resolve)
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
   | Goals sid ->               [GoalInfo (sid, Interpreter.get_goals ~sid)]
-  | Query (_, _, _) ->         [(* not implemented*)]
-  | Inspect (_, _, _) ->       [(* not implemented*)]
+  | Query (sid, rid, q) ->     capture_exn ~sid ~rid ~status:(fun c -> [c])
+                                 (fun () -> Interpreter.query sid q ~route:rid; [])
+  | Inspect (sid, rid, q) ->   [SearchResults (rid, Interpreter.inspect sid q)]
   | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
 
   | Load filename ->           [Loaded (filename, Compiler.load filename ~echo:false)]

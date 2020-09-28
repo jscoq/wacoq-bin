@@ -36,6 +36,10 @@ class SubprocessWorker extends EventEmitter {
         this.cp.stdin.end();
     }
 
+    terminate() {
+        this.cp.kill("SIGINT");
+    }
+
     addEventListener(event: "message", handler: (ev: {data: any[]}) => void) {
         this.on(event, handler);
     }

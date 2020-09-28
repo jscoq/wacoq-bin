@@ -40,8 +40,8 @@ install:
 
 dist-npm:
 	rm -rf staging
-	parcel build -d staging/dist --target node --no-source-maps src/cli.ts
-	parcel build -o staging/dist/subproc.js --target node --no-source-maps src/backend/subproc/index.ts
+	parcel build -d staging/dist --no-source-maps --target node src/cli.ts
+	parcel build -d staging/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
 	parcel build -d staging/dist --no-source-maps src/worker.ts
 	cp package.json index.js staging/
 	mkdir staging/bin && ln -s ../../bin/{icoq.bc,coq} staging/bin/

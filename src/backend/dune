@@ -1,7 +1,6 @@
 (executable
  (name icoq)
  (modes byte native)
- (modules icoq icoq_init wacoq_proto)
  (preprocess (staged_pps ppx_import ppx_deriving_yojson))
  (libraries coq.stm coq.toplevel yojson coq-serapi.serlib coq-serapi.serapi_v8_11)
  (ocamlc_flags -no-check-prims)

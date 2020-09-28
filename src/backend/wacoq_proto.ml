@@ -7,6 +7,13 @@ module Evar     = Serlib.Ser_evar
 module Loc      = Serlib.Ser_loc
 module Pp       = Serlib.Ser_pp
 
+module Libnames = Serlib.Ser_libnames
+
+module Seq = struct
+  type 'a t = 'a Seq.t
+  let to_yojson f s = `List (Seq.fold_left (fun l x -> f x :: l) [] s |> List.rev)
+end
+
 module Proto = struct
 
 module Goals = struct
@@ -47,10 +54,7 @@ and top_mode =
   [@@deriving yojson]
 
 type search_query =
-  | All
-  | CurrentFile
-  | Keyword of string
-  | Locals
+  [%import: Inspect.search_query]
   [@@deriving yojson]
 
 type wacoq_cmd =
@@ -78,6 +82,8 @@ type wacoq_answer =
   | GoalInfo  of Stateid.t * Goals.t option
   | Feedback  of Feedback.feedback
   | Pending   of Stateid.t option * string option * string list
+
+  | SearchResults of Feedback.route_id * Libnames.full_path Seq.t
 
   | Loaded    of string * Stateid.t
   | Compiled  of string
