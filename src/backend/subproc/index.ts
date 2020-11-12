@@ -75,6 +75,7 @@ class IcoqSubprocess extends SubprocessWorker {
             [prog, args] = IcoqSubprocess.findExecutable(bin, options.mode);
 
         super(prog, [...args, '-stdin'], {
+            cwd: options.cwd,
             env: {
                 PATH: process.env.PATH,
                 CAML_LD_LIBRARY_PATH:
@@ -114,11 +115,11 @@ class IcoqSubprocess extends SubprocessWorker {
         }
     }
 
-    static DEFAULT_OPTIONS: IcoqSubprocessOptions = {mode: "best"};
+    static DEFAULT_OPTIONS: IcoqSubprocessOptions = {mode: "best", cwd: "/tmp"};
 }
 
 type IcoqSubprocessMode = "byte" | "native" | "best";
-type IcoqSubprocessOptions = {mode?: IcoqSubprocessMode};
+type IcoqSubprocessOptions = {mode?: IcoqSubprocessMode, cwd?: string};
 
 
 export { IcoqSubprocess }
