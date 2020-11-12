@@ -53,8 +53,18 @@ and top_mode =
   [%import: Icoq_init.top_mode]
   [@@deriving yojson]
 
+type in_mode = Proof | General
+let in_mode_to_yojson = function Proof -> `String "Proof" | General -> `Null
+
 type search_query =
   [%import: Inspect.search_query]
+  [@@deriving yojson]
+
+type query =
+  | Mode
+  | Goals
+  | Vernac of string
+  | Inspect of search_query
   [@@deriving yojson]
 
 type wacoq_cmd =
@@ -63,10 +73,8 @@ type wacoq_cmd =
   | Add     of Stateid.t option * Stateid.t option * string * bool
   | Exec    of Stateid.t
   | Cancel  of Stateid.t
-  | Goals   of Stateid.t
 
-  | Query   of Stateid.t * Feedback.route_id * string
-  | Inspect of Stateid.t * Feedback.route_id * search_query
+  | Query   of Stateid.t * Feedback.route_id * query
 
   | RefreshLoadPath
 
@@ -79,10 +87,12 @@ type wacoq_answer =
   | Ready     of Stateid.t
   | Added     of Stateid.t * Loc.t option
   | BackTo    of Stateid.t
-  | GoalInfo  of Stateid.t * Goals.t option
   | Feedback  of Feedback.feedback
   | Pending   of Stateid.t option * string option * string list
 
+  (* Query responses *)
+  | ModeInfo  of Stateid.t * in_mode
+  | GoalInfo  of Stateid.t * Goals.t option
   | SearchResults of Feedback.route_id * Libnames.full_path Seq.t
 
   | Loaded    of string * Stateid.t

@@ -3,7 +3,7 @@ open Wacoq_proto.Proto
 
 external emit : string -> unit = "wacoq_emit"
 
-let wacoq_version = "0.12.0-alpha1"
+let wacoq_version = "0.12.1-alpha1"
 
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{
@@ -63,9 +63,9 @@ let start config vo_load_path ml_load_path =
 
 
 let coq_exn_info exn =
-    let (e, info) = Exninfo.capture exn in
-    let pp_exn    = CErrors.iprint (e, info) in
-    CoqExn (Loc.get_loc info, Stateid.get info, pp_exn)
+  let (e, info) = Exninfo.capture exn in
+  let pp_exn    = CErrors.iprint (e, info) in
+  CoqExn (Loc.get_loc info, Stateid.get info, pp_exn)
 
 
 (*
@@ -177,6 +177,12 @@ module Interpreter = struct
     let pa = Pcoq.Parsable.make (Stream.of_string query) in
     Stm.query ~doc ~at:sid ~route pa
 
+  let mode_at ~sid =
+    let doc, sid = at sid in
+    match Stm.state_of_id ~doc sid with
+    | `Valid (Some { lemmas = Some _; _ }) -> Proof 
+    | _ -> General
+
   let inspect sid q =
     let doc, sid = at sid in
     Inspect.inspect ~doc sid q
@@ -243,6 +249,14 @@ let add_or_pend ?from ?newid stm ~resolve =
     [Added (Interpreter.add_ast ?from ?newid ast, ast.CAst.loc)]
 
 
+let exec_query sid ~route query =
+  match query with
+  | Goals -> [GoalInfo (sid, Interpreter.get_goals ~sid)]
+  | Mode ->  [ModeInfo (sid, Interpreter.mode_at ~sid)]
+  | Vernac command -> Interpreter.query sid command ~route; []
+  | Inspect q -> [SearchResults (route, Interpreter.inspect sid q)]
+
+
 let capture_exn ?sid ?(rid=0) ?(status=fun c -> []) op =
   let sid = Option.default Stateid.dummy sid in
   let feed contents = Feedback { doc_id = 0; span_id = sid; route = rid; contents } in
@@ -261,10 +275,8 @@ let wacoq_execute = function
                                  add_or_pend ?from ?newid stm ~resolve)
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
-  | Goals sid ->               [GoalInfo (sid, Interpreter.get_goals ~sid)]
   | Query (sid, rid, q) ->     capture_exn ~sid ~rid ~status:(fun c -> [c])
-                                 (fun () -> Interpreter.query sid q ~route:rid; [])
-  | Inspect (sid, rid, q) ->   [SearchResults (rid, Interpreter.inspect sid q)]
+                                 (fun () -> exec_query sid ~route:rid q)
   | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
 
   | Load filename ->           [Loaded (filename, Compiler.load filename ~echo:false)]

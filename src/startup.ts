@@ -48,7 +48,7 @@ function main(opts: any = {}) {
             break;
         case 'Added':
             sendCommand(['Exec', ev.data[1]]);
-            sendCommand(['Goals', ev.data[1]]); break;
+            sendCommand(['Query', ev.data[1], 0, ['Goals']]); break;
         case 'Pending':
             let [, sid, prefix, modrefs] = ev.data;
             pi.loadModuleDeps(pi.findModules(prefix, modrefs)).then(() => {
