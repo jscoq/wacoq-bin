@@ -17,6 +17,8 @@
     "array-equal": "^1.0.0",
     "byline": "^5.0.0",
     "commander": "^5.1.0",
+    "fflate": "^0.3.6",
+    "find": "^0.3.0",
     "find-up": "^5.0.0",
     "jquery": "^3.5.1",
     "jszip": "^3.5.0",
@@ -27,6 +29,7 @@
     "wasi-kernel": "^0.1.1-rc1"
   },
   "devDependencies": {
+    "@types/find": "^0.2.1",
     "@types/jquery": "^3.5.0",
     "@types/mkdirp": "^1.0.1",
     "@types/node": "^14.0.27",

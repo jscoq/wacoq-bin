@@ -31,7 +31,8 @@ wacoq-only:
 dist/cli.js:
 	parcel build --target node src/cli.ts
 
-coq-pkgs: dist/cli.js
+coq-pkgs:
+	dune build -p coq
 	node dist/cli.js --nostdlib src/build/metadata/coq-pkgs.json
 
 install:

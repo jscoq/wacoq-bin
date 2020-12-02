@@ -83,8 +83,9 @@ class IcoqSubprocess extends SubprocessWorker {
             }
         });
         this.binDir = bin;
-        this.packages = new PackageDirectory('/tmp/lib');
+        this.packages = new PackageDirectory('/tmp/wacoq/lib');
         this.packages.on('message', ev => this.emit('message', ev));
+        this.packages.appropriatePlugins(this.binDir);
     }
 
     postMessage(msg: string | [string, ...any[]]) {
@@ -115,7 +116,7 @@ class IcoqSubprocess extends SubprocessWorker {
         }
     }
 
-    static DEFAULT_OPTIONS: IcoqSubprocessOptions = {mode: "best", cwd: "/tmp"};
+    static DEFAULT_OPTIONS: IcoqSubprocessOptions = {mode: "best", cwd: "/tmp/wacoq"};
 }
 
 type IcoqSubprocessMode = "byte" | "native" | "best";
