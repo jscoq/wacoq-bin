@@ -1,7 +1,5 @@
 import { EventEmitter } from 'events';
-import JSZip from 'jszip';
-import { DEFLATE } from 'jszip/lib/compressions'
-import { inflateRaw } from 'pako';
+import { unzipSync } from 'fflate';
 
 import { OCamlExecutable } from './ocaml_exec';
 
@@ -141,22 +139,12 @@ class IcoqPod extends EventEmitter {
 
 class IO {
 
-    async unzip(zip: string | JSZip, put: (filename: string, content: Uint8Array) => void, progress?: (p: any) => void) {
-        if (typeof zip == 'string')
-            zip = await JSZip.loadAsync(await this._fetch(zip, progress));
+    async unzip(uri: string, put: (filename: string, content: Uint8Array) => void, progress?: (p: any) => void) {
+        var zip = unzipSync(await this._fetch(uri, progress));
 
-        let yc = 0;
-        for (let entry of zip.filter((_, e) => !e.dir)) {
-            put(entry.name, this._inflateFast(entry));
-            if (!((++yc) & 0xf)) await _yield();
+        for (let [filename, data] of Object.entries(zip)) {
+            put(filename, data);
         }
-    }
-
-    _inflateFast(entry: any) {
-        if (entry._data.compression == DEFLATE)
-            return inflateRaw(entry._data.compressedContent);
-        else /* STORE */
-            return entry._data.compressedContent;
     }
 
     async _fetch(uri: string, progress?: (p: any) => void) : Promise<Uint8Array> {
@@ -183,7 +171,7 @@ class IO {
     // boilerplate
     async _fetchWithProgress(uri: string, progress: (p: any) => void) {
         var response = await fetch(uri),
-            total = +response.headers.get('Content-Length') || 10,
+            total = +response.headers.get('Content-Length') || 1000,
             r = response.body.getReader(), chunks = [], downloaded = 0;
         for(;;) {
             var {value, done} = await r.read();
@@ -196,8 +184,6 @@ class IO {
     }
 
 }
-
-function _yield() { return new Promise(resolve => setTimeout(resolve, 0)); }
 
 
 type DownloadProgress = { total: number, downloaded: number };
