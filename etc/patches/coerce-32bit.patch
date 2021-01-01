@@ -40,8 +40,21 @@ index 5b2d934..ce7edb6 100644
  
  let uint_size = 63
  
+diff --git a/lib/objFile.ml b/lib/objFile.ml
+index 26367aa..fa6034f 100644
+--- a/lib/objFile.ml
++++ b/lib/objFile.ml
+@@ -138,7 +138,7 @@ let marshal_out_segment h ~segment v =
+   let { out_channel = ch } = h in
+   let () = assert (not (CString.Map.mem segment h.out_segments)) in
+   let pos = LargeFile.pos_out ch in
+-  let () = Marshal.to_channel ch v [] in
++  let () = Marshal.to_channel ch v [Marshal.Compat_32] in
+   let () = flush ch in
+   let pos' = LargeFile.pos_out ch in
+   let len = Int64.sub pos' pos in
 diff --git a/lib/system.ml b/lib/system.ml
-index e25f758..a59c972 100644
+index 1aadaf6..fd53a43 100644
 --- a/lib/system.ml
 +++ b/lib/system.ml
 @@ -184,7 +184,7 @@ let input_binary_int f ch =
@@ -53,6 +66,19 @@ index e25f758..a59c972 100644
  let marshal_in filename ch =
    try Marshal.from_channel ch
    with
+diff --git a/plugins/ltac/tacentries.ml b/plugins/ltac/tacentries.ml
+index e6c59f4..d3364e9 100644
+--- a/plugins/ltac/tacentries.ml
++++ b/plugins/ltac/tacentries.ml
+@@ -244,7 +244,7 @@ let make_fresh_key =
+     (* We embed the hash of the kernel name in the label so that the identifier
+        should be mostly unique. This ensures that including two modules
+        together won't confuse the corresponding labels. *)
+-    let hash = (cur lxor (ModPath.hash (Lib.current_mp ()))) land 0x7FFFFFFF in
++    let hash = (cur lxor (ModPath.hash (Lib.current_mp ()))) land 0x3FFFFFFF in
+     let lbl = Id.of_string_soft (Printf.sprintf "%s_%08X" prods hash) in
+     Lib.make_kn lbl
+ 
 diff --git a/theories/Numbers/Cyclic/Int63/Int63.v b/theories/Numbers/Cyclic/Int63/Int63.v
 index 2c112c3..99459bb 100644
 --- a/theories/Numbers/Cyclic/Int63/Int63.v
