@@ -7,7 +7,7 @@ authors:      "Shachar Itzhaky"
 homepage:     "https://github.com/corwin-of-amber/wacoq-bin"
 bug-reports:  "https://github.com/corwin-of-amber/wacoq-bin"
 dev-repo:     "git+https://github.com/corwin-of-amber/wacoq-bin.git"
-license:      "AGPL 3"
+license:      "AGPL-3.0-or-later"
 
 depends: [
   "ocaml"               { >= "4.08.1"           }
@@ -18,8 +18,8 @@ depends: [
   # We should just rely on OPAM's serlib but this is still early
   "sexplib"             { >= "v0.12.0"           }
   "ppx_sexp_conv"       { build   & >= "v0.12.0" }
-  # We build a local, patched Coq, but however it is still a dep
-  # "coq"                 { >= "8.11.0" & < "8.12" }
+  # We build a local, patched Coq; these are its deps
+  "ocamlfind"
   "num"
 ]
 

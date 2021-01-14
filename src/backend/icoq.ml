@@ -3,7 +3,7 @@ open Wacoq_proto.Proto
 
 external emit : string -> unit = "wacoq_emit"
 
-let wacoq_version = "0.12.1-alpha1"
+let wacoq_version = "0.12.1-alpha2"
 
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{

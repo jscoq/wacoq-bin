@@ -28,7 +28,9 @@ function main(opts: any = {}) {
         worker.postMessage(JSON.stringify(cmd));
     }
 
-    var consl = new InteractiveConsole();
+    var consl = new InteractiveConsole(),
+        tip = 0,
+        queue = ['Check nat.', 'Check Prop.'];
 
     worker.addEventListener('message', (ev) => {
         console.log(ev.data);
@@ -44,7 +46,7 @@ function main(opts: any = {}) {
         case 'Ready':
             milestone('Ready');
             consl.showProgress('Starting', {done: true});
-            sendCommand(['Add', null, null, 'Check nat.', true]);
+            nextStmt();
             break;
         case 'Added':
             sendCommand(['Exec', ev.data[1]]);
@@ -65,8 +67,12 @@ function main(opts: any = {}) {
             if (ev.data[3]) consl.write(ev.data[3]);
             break;
         case 'Feedback':
-            if (ev.data[1].contents[0] === 'Message')
-                consl.write(ev.data[1].contents[3]);
+            switch (ev.data[1].contents[0]) {
+            case 'Message':
+                consl.write(ev.data[1].contents[3]); break;
+            case 'Processed':
+                if (ev.data[1].span_id === tip) nextStmt(); break;
+            }
             break;
         case 'LibProgress':
             var e = ev.data[1];
@@ -79,12 +85,19 @@ function main(opts: any = {}) {
         }
     });
     
+    function stmt(line: string) {
+        tip = ++sid;
+        stms[tip] = line;
+        sendCommand(['Add', null, tip, line, false]);
+    }
+
+    function nextStmt() {
+        if (queue.length) stmt(queue.shift());
+    }
+
     let sid = 4, stms = {};
 
-    consl.on('data', (line) => {
-        stms[++sid] = line;
-        sendCommand(['Add', null, sid, line, false]);
-    });
+    consl.on('data', (line) => stmt(line));
 
     consl.on('load-pkg', (ev) => worker.postMessage(['LoadPkg', ev.uri]));
 

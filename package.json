@@ -1,19 +1,24 @@
 {
   "name": "wacoq-bin",
-  "version": "0.12.1-alpha1",
+  "version": "0.12.1-alpha2",
   "description": "WASM Binaries of the Coq Proof Assistant (for jsCoq)",
   "main": "dist/index.html",
   "author": "corwin-of-amber",
-  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "github:corwin-of-amber/wacoq-bin"
+  },
+  "license": "MIT",
   "scripts": {
     "build": "parcel build src/worker.ts && etc/build-node.sh",
+    "dist": "make dist-npm",
     "postinstall": "node ./etc/postinstall.js"
   },
   "bin": {
     "wacoq": "./index.js"
   },
   "dependencies": {
-    "@ocaml-wasm/4.08--num": "^1.4.0",
+    "@ocaml-wasm/4.10--num": "^1.4.0-0",
     "array-equal": "^1.0.0",
     "byline": "^5.0.0",
     "commander": "^5.1.0",
@@ -26,8 +31,8 @@
     "jszip-unzip": "^3.4.0-0",
     "mkdirp": "^1.0.4",
     "neatjson": "^0.8.3",
-    "ocaml-wasm": "4.8.1-3",
-    "wasi-kernel": "^0.1.1-rc1"
+    "ocaml-wasm": "^4.10.1-2",
+    "wasi-kernel": "^0.1.1"
   },
   "devDependencies": {
     "@types/find": "^0.2.1",
@@ -35,7 +40,7 @@
     "@types/mkdirp": "^1.0.1",
     "@types/node": "^14.0.27",
     "cssnano": "^4.1.10",
-    "typescript": "^3.9.7"
+    "typescript": "^4.1.3"
   },
   "bundledDependencies": [
     "jszip",
