@@ -1,5 +1,5 @@
 synopsis:     "Coq for WebAssembly"
-description:  ""
+description:  "WASM Binaries of the Coq Proof Assistant (for jsCoq)"
 name:         "wacoq"
 opam-version: "2.0"
 maintainer:   "corwin.amber@gmail.com"

@@ -7,6 +7,14 @@
  (link_flags -linkall))
 
 (rule
+ (target wacoq_version.ml)
+ (deps ../../package.json)
+ (action
+  (bash "node -p \
+      '`let version = \"${require(\"../../package.json\").version}\"`' \
+      > %{target}")))
+
+(rule
  (targets dllbyterun_stubs.wasm)
  (deps byterun_stubs.c)
  (action

@@ -22,8 +22,9 @@ setup:
 
 deps: coq coq-serapi
 
-wacoq:
+wacoq: dist/cli.js
 	dune build @coq @wacoq
+	node dist/cli.js --nostdlib src/build/metadata/coq-pkgs.json
 
 wacoq-only:
 	dune build @wacoq
@@ -32,10 +33,12 @@ dist/cli.js:
 	parcel build --target node src/cli.ts
 
 coq-pkgs:
-	dune build -p coq
+	dune build @coq
 	node dist/cli.js --nostdlib src/build/metadata/coq-pkgs.json
 
 install:
+	# This unfortunately overwrites some merlin files
+	# (re-run `make wacoq` to restore)
 	dune build -p coq
 	dune install coq
 
@@ -44,11 +47,11 @@ dist-npm:
 	parcel build -d staging/dist --no-source-maps --target node src/cli.ts
 	parcel build -d staging/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
 	parcel build -d staging/dist --no-source-maps src/worker.ts
-	cp package.json index.js staging/
+	cp package.json index.js README.md staging/
 	mkdir staging/bin && ln -s ../../bin/{icoq.bc,coq} staging/bin/
 	mkdir staging/etc && cp etc/postinstall.js staging/etc
 	tar zchf wacoq-bin-$(PACKAGE_VERSION).tar.gz \
-	    --exclude='coqlib/**' --exclude='*.*.js' \
+	    --exclude='coqlib/**' --exclude='*.*.js' --exclude='*.so' \
 	    -C staging ./package.json ./index.js ./dist ./bin ./etc
 
 ########################################################################
@@ -59,7 +62,7 @@ dist-npm:
 
 COQ_SRC = vendor/coq
 
-COQ_BRANCH=V8.12.0
+COQ_BRANCH=V8.12.1
 COQ_REPOS=https://github.com/coq/coq.git
 
 COQ_PATCHES = timeout $(COQ_PATCHES|$(WORD_SIZE))

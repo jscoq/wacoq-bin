@@ -3,8 +3,6 @@ open Wacoq_proto.Proto
 
 external emit : string -> unit = "wacoq_emit"
 
-let wacoq_version = "0.12.1-alpha2"
-
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{
     unix_path = unix_path;
@@ -230,9 +228,10 @@ end
 
 let info_string () =
   let coqv, coqd, ccd, ccv, cmag = Interpreter.version              in
+  let wacoqv = Wacoq_version.version                                in
   let info1 = Printf.sprintf
               "waCoq %s, Coq %s/%4d (%s),\n  compiled on %s\n"
-              wacoq_version coqv (Int32.to_int cmag) coqd ccd       in
+              wacoqv coqv (Int32.to_int cmag) coqd ccd              in
   let info2 = Printf.sprintf
               "OCaml %s (wasi-sdk-11)\n" ccv                        in
   info1 ^ info2
