@@ -109,3 +109,16 @@ index 1d93267..0d7fa12 100644
  Qed.
  End TestRing.
 +*)
+diff --git a/vernac/metasyntax.ml b/vernac/metasyntax.ml
+index e2ecf3b..6d804fb 100644
+--- a/vernac/metasyntax.ml
++++ b/vernac/metasyntax.ml
+@@ -1107,7 +1107,7 @@ let subentry_of_constr_prod_entry from_level = function
+     let n = match fst (precedence_of_position_and_level from_level x) with
+      | LevelLt n -> n-1
+      | LevelLe n -> n
+-     | LevelSome -> max_int in
++     | LevelSome -> (1 lsl 30) - 1 in
+     InCustomEntryLevel (s,n)
+   (* level and use of parentheses for coercion is hard-wired for "constr";
+      we don't remember the level *)
