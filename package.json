@@ -32,7 +32,7 @@
     "mkdirp": "^1.0.4",
     "neatjson": "^0.8.3",
     "ocaml-wasm": "^4.10.1-2",
-    "wasi-kernel": "^0.1.1"
+    "wasi-kernel": "^0.1.2"
   },
   "devDependencies": {
     "@types/find": "^0.2.1",
