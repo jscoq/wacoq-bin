@@ -1,6 +1,6 @@
 {
   "name": "wacoq-bin",
-  "version": "0.12.1-alpha3",
+  "version": "0.12.1",
   "description": "WASM Binaries of the Coq Proof Assistant (for jsCoq)",
   "main": "dist/index.html",
   "author": "corwin-of-amber",
@@ -31,7 +31,7 @@
     "jszip-unzip": "^3.4.0-0",
     "mkdirp": "^1.0.4",
     "neatjson": "^0.8.3",
-    "ocaml-wasm": "^4.10.1-2",
+    "ocaml-wasm": "^4.10.2-0",
     "wasi-kernel": "^0.1.2"
   },
   "devDependencies": {
