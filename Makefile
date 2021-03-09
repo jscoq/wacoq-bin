@@ -22,22 +22,15 @@ setup:
 
 deps: coq coq-serapi
 
-wacoq: dist/cli.js
-	dune build @coq @wacoq
-	node dist/cli.js --nostdlib src/build/metadata/coq-pkgs.json
+wacoq:
+	dune build @coq @wacoq coq-pkgs
+	mkdir -p dist && cp _build/$(BUILD_CONTEXT)/cli.js dist/cli.js
 
 wacoq-only:
 	dune build @wacoq
 
-dist/cli.js:
-	parcel build --target node src/cli.ts
-
-coq-pkgs:
-	dune build @coq
-	node dist/cli.js --nostdlib src/build/metadata/coq-pkgs.json
-
 install:
-	# This unfortunately overwrites some merlin files
+	# This unfortunately deletes some wacoq build artifacts
 	# (re-run `make wacoq` to restore)
 	dune build -p coq
 	dune install coq

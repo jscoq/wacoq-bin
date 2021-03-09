@@ -1,6 +1,6 @@
 {
-    "rootdir": "_build/wacoq/vendor/coq",
-    "builddir": "bin/coq",
+    "rootdir": "vendor/coq",
+    "builddir": "coq-pkgs",
     "bundle": "coq.json",
     "projects": {
         "init": {

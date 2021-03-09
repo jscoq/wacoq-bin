@@ -15,4 +15,24 @@
  (deps
   src/backend/icoq.bc
   src/backend/icoq.exe
-  src/backend/dllbyterun_stubs.wasm))
+  src/backend/dllbyterun_stubs.wasm
+  cli.js))
+
+(rule
+ (target coq-pkgs)
+ (deps
+  cli.js
+  src/build/metadata/coq-pkgs.json
+  (package coq))
+ (action
+  (run node ./cli.js --nostdlib src/build/metadata/coq-pkgs.json)))
+
+(rule
+ (targets cli.js)
+ (deps
+  (source_tree src)
+  tsconfig.json
+  package.json)
+ (action
+  (progn
+   (run npx parcel build -d . --target node src/cli.ts))))
