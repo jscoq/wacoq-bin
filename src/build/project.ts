@@ -1,9 +1,12 @@
+import path from 'path';
 import { FSInterface, fsif_native } from './fsif';
 import { CoqDep } from './coqdep';
 import arreq from 'array-equal';
 import type JSZip from 'jszip';
 import { zipSync, ZipOptions } from 'fflate';
 import { neatJSON } from 'neatjson';
+
+const fs = fsif_native.fs;
 
 
 
@@ -50,8 +53,42 @@ class CoqProject {
     }
 
     fromDirectory(dir: string = '', volume = this.volume) {
-        this.searchPath.addRecursive({volume,
-                    physical: dir, logical: '', pkg: this.name});
+        try {
+            var coqmf = volume.fs.readFileSync(volume.path.join(dir, '_CoqProject'), 'utf-8');
+        } catch (e) { }
+
+        if (coqmf) return this.fromCoqMF(coqmf, dir, volume)
+        else {
+            this.searchPath.addRecursive({volume,
+                        physical: dir, logical: '', pkg: this.name});
+            return this;
+        }
+    }
+
+    /**
+     * Configures a project from flags in _CoqProject format, i.e. -R ..., -Q ...,
+     * and list of .v files.
+     * @param {string} coqProjectText content of _CoqProject definition file
+     * @param {string} baseDir project root directory (usually the one containing _CoqProject)
+     * @param {FSInterface} volume containing volume
+     */
+    fromCoqMF(coqProjectText: string, baseDir: string = '', volume: FSInterface = this.volume) {
+        var pkg = this.name, modules = [];
+        for (let line of coqProjectText.split(/\n+/)) {
+            var mo = /^\s*(-[RQ])\s+(\S+)\s+(\S+)/.exec(line);
+            if (mo) {
+                var [flag, physical, logical] = [mo[1], mo[2], mo[3]];
+                physical = volume.path.join(baseDir, physical);
+                if (flag === '-R')
+                    this.searchPath.addRecursive({volume, physical, logical, pkg});
+                else
+                    this.searchPath.add({volume, physical, logical, pkg});
+            }
+            else {
+                for (let mo of line.matchAll(/\S+[.]v/g)) modules.push(mo[0]);
+            }
+        }
+        if (modules.length > 0) this.setModules(modules);
         return this;
     }
 
@@ -223,7 +260,8 @@ class SearchPath {
     add({volume, physical, logical, pkg}: SearchPathAddParameters) {
         volume = volume || this.volume;
         logical = this.toDirPath(logical);
-        this.path.push({volume, logical, physical, pkg});
+        if (!this.has({volume, physical, logical, pkg}))
+            this.path.push({volume, logical, physical, pkg});
     }
 
     addRecursive({volume, physical, logical, pkg}: SearchPathAddParameters) {
@@ -243,6 +281,16 @@ class SearchPath {
     addFrom(other: SearchPath | CoqProject) {
         if (other instanceof CoqProject) other = other.searchPath;
         this.path.push(...other.path);
+    }
+
+    has({volume, physical, logical, pkg}: SearchPathAddParameters) {
+        if (logical !== undefined) logical = this.toDirPath(logical);
+        return this.path.find(pel => {
+            (volume   === undefined || pel.volume   ===   volume) &&
+            (physical === undefined || pel.physical ===   physical) &&
+            (logical  === undefined || arreq(pel.logical, logical)) &&
+            (pkg      === undefined || pel.pkg      ===   pkg)
+        })
     }
 
     toLogical(filename: string) {
@@ -390,9 +438,6 @@ interface PackageIndex {
 }
 
 
-import fs from 'fs';
-import path from 'path';
-
 abstract class StoreVolume implements FSInterface {
 
     fs: typeof fs
@@ -461,11 +506,22 @@ class InMemoryVolume extends StoreVolume {
         else return super.statSync(fp);
     }
 
+    renameSync(oldFilename: string, newFilename: string) {
+        if (oldFilename !== newFilename) {
+            this.fileMap.set(newFilename, this.readFileSync(oldFilename) as Uint8Array);
+            this.fileMap.delete(oldFilename);
+        }
+    }
+
+    unlinkSync(filename: string) {
+        this.fileMap.delete(filename);
+    }
+
 }
 
 
 class ZipVolume extends StoreVolume {
-    zip: JSZip
+    zip: JSZip  /** @todo use fflate */
 
     _files: string[]
 
@@ -490,13 +546,13 @@ class ZipVolume extends StoreVolume {
     }
 
     static async fromFile(zipFilename: string) {
-        const JSZip = await import('jszip');
+        const JSZip = _default(await import('jszip'));
         return new ZipVolume(
             await JSZip.loadAsync((0 || fs.readFileSync)(zipFilename)));
     }
 
     static async fromBlob(blob: Blob | Promise<Blob>) {
-        const JSZip = await import('jszip');
+        const JSZip = _default(await import('jszip'));;
         return new ZipVolume(await JSZip.loadAsync(<any>blob));
     }
 
@@ -510,6 +566,10 @@ class ZipVolume extends StoreVolume {
             return entry._data.compressedContent;
     }
 
+}
+
+function _default<T>(m: {default: T}): T { // Parcel compat
+    return m.default || (<any>m);
 }
 
 
