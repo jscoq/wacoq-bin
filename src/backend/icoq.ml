@@ -29,6 +29,8 @@ let default_warning_flags = "-notation-overridden"  (* for ssreflect :/ *)
 let core_config : startup_config option ref = ref None
 
 let init config =
+  Dynlink.allow_unsafe_modules true; (* this is needed for camlp4 and some others *)
+
   if (config.debug.coq) then
     Coqinit.set_debug ();
 
