@@ -21,6 +21,7 @@ depends: [
   # We build a local, patched Coq; these are its deps
   "ocamlfind"
   "num"
+  "zarith"              { >= "1.11"    }
 ]
 
 build: [ "dune" "build" "-p" name "-j" jobs ]

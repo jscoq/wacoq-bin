@@ -36,8 +36,8 @@ let full_path_of_constant c = full_path_of_kn (Names.Constant.user c)
 (* Get current proof context *)
 let context_of_st m = match m with
   | `Valid (Some { Vernacstate.lemmas = Some lemma ; _ } ) ->
-    Vernacstate.LemmaStack.with_top_pstate lemma
-      ~f:(fun pstate -> Pfedit.get_current_context pstate)
+    Vernacstate.LemmaStack.with_top lemma
+      ~f:(fun pstate -> Declare.Proof.get_current_context pstate)
   | _ ->
     let env = Global.env () in Evd.from_env env, env
 

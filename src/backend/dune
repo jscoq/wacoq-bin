@@ -2,7 +2,7 @@
  (name icoq)
  (modes byte native)
  (preprocess (staged_pps ppx_import ppx_deriving_yojson))
- (libraries coq.stm coq.toplevel yojson coq-serapi.serlib coq-serapi.serapi_v8_12)
+ (libraries coq.stm coq.toplevel yojson coq-serapi.serlib coq-serapi.serapi_v8_13)
  (ocamlc_flags -no-check-prims)
  (link_flags -linkall))
 

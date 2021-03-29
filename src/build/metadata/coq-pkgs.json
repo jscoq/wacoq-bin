@@ -1,7 +1,7 @@
 {
     "rootdir": "vendor/coq",
     "builddir": "coq-pkgs",
-    "bundle": "coq.json",
+    "bundle": "coq",
     "projects": {
         "init": {
             "theories": {
@@ -19,8 +19,7 @@
             "theories": {
                 "prefix": "Coq",
                 "dirpaths": ["Logic", "Program", "Classes", "Structures",
-                             "Relations", "Setoids", "Wellfounded", "Strings",
-                             "Numbers", "extraction", "funind"]
+                             "Relations", "Setoids", "extraction", "funind"]
             },
             "plugins": {
                 "prefix": "Coq",
@@ -31,18 +30,18 @@
             "theories": {
                 "prefix": "Coq",
                 "dirpaths": ["Lists", "Vectors", "Sets", "FSets", "MSets",
-                             "Sorting"]
+                             "Sorting", "Array", "Strings"]
             }
         },
         "coq-arith": {
             "theories": {
                 "prefix": "Coq",
                 "dirpaths": ["Arith", "NArith", "PArith", "ZArith", "QArith",
-                             "setoid_ring", "omega"]
+                             "Numbers", "Wellfounded", "setoid_ring", "omega"]
             },
             "plugins": {
                 "prefix": "Coq",
-                "dirpaths": ["setoid_ring", "omega"]
+                "dirpaths": ["ring", "omega"]
             }
         },
         "coq-reals": {

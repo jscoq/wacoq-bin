@@ -55,7 +55,7 @@ dist-npm:
 
 COQ_SRC = vendor/coq
 
-COQ_BRANCH=V8.12.2
+COQ_BRANCH = V8.13.0
 COQ_REPOS=https://github.com/coq/coq.git
 
 COQ_PATCHES = timeout $(COQ_PATCHES|$(WORD_SIZE))
