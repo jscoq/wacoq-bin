@@ -8,7 +8,7 @@
 #define CAMLprim __attribute__((used))
 #define STUB { /* __wasi_trace("coq:byterun stub"); */ return Atom(0); }
 
-/* coq_float64.h */
+/* coq_float64.c */
 
 CAMLprim value coq_is_double(value x)               STUB
 
@@ -65,10 +65,11 @@ CAMLprim value accumulate_code(value unit)          STUB
 
 CAMLprim value coq_kind_of_closure(value v)                            STUB
 CAMLprim value coq_closure_arity(value clos)                           STUB
-CAMLprim value coq_offset(value v)                                     STUB
-CAMLprim value coq_offset_closure(value v, value offset)               STUB
+CAMLprim value coq_current_fix(value v)                                STUB
+CAMLprim value coq_shift_fix(value v, value offset)                    STUB
+CAMLprim value coq_last_fix(value v)                                   STUB
 CAMLprim value coq_set_bytecode_field(value v, value i, value code)    STUB
-CAMLprim value coq_offset_tcode(value code,value offset)               STUB
+CAMLprim value coq_offset_tcode(value code, value offset)              STUB
 CAMLprim value coq_int_tcode(value pc, value offset)                   STUB
 CAMLprim value coq_tcode_array(value tcodes)                           STUB
 

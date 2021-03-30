@@ -19,8 +19,6 @@ class IcoqPod extends EventEmitter {
         this.binDir = binDir;
 
         this.core = new OCamlExecutable({stdin: false, tty: false, binDir});
-        this.core.debug = () => {};
-        this.core.trace = () => {};        
 
         var utf8 = new TextDecoder();
         this.core.on('stream:out', ev => console.log(utf8.decode(ev.data)));

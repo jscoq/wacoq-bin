@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ocaml-wasm/4.10--num": "^1.4.0-0",
+    "@ocaml-wasm/4.10--zarith-stubs": "file:../../ext/wasm/ports/ocaml/libs/zarith/ocaml-wasm-4.10--zarith-stubs-1.12.0-0.tgz",
     "array-equal": "^1.0.0",
     "byline": "^5.0.0",
     "commander": "^5.1.0",
@@ -31,8 +32,8 @@
     "jszip-unzip": "^3.4.0-0",
     "mkdirp": "^1.0.4",
     "neatjson": "^0.8.3",
-    "ocaml-wasm": "^4.10.2-0",
-    "wasi-kernel": "0.1.2"
+    "ocaml-wasm": "file:../../ext/wasm/ports/ocaml/ocaml-4.10/ocaml-wasm-4.10.2-1.tgz",
+    "wasi-kernel": "^0.1.3"
   },
   "devDependencies": {
     "@types/find": "^0.2.1",

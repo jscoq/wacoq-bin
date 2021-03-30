@@ -39,7 +39,10 @@ class OCamlExecutable extends ExecCore {
         var bin = this.opts.binDir || '../bin';
         return ['dllcamlstr', 'dllunix', 'dllthreads'].map(b => ({
             name: `${b}.so`, uri: `${bin}/ocaml/${b}.wasm`
-        })).concat({name: 'dllnums.so', uri: `${bin}/num/dllnums.wasm`});
+        })).concat([
+            {name: 'dllnums.so', uri: `${bin}/num/dllnums.wasm`},
+            {name: 'dllzarith.so', uri: `${bin}/zarith/dllzarith.wasm`}
+        ]);
     }
 
     to_caml_string(s: string) {
