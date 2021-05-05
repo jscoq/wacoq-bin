@@ -127,7 +127,7 @@ class IcoqPod extends EventEmitter {
             'dllbyterun_stubs.so', `${this.binDir}/coq/dllbyterun_stubs.wasm`,
             {
                 js: {
-                    wacoq_emit_js: (s:number) => this._answer(s)
+                    wacoq_emit: (s:number) => this._answer(s)
                 }
             }
         );

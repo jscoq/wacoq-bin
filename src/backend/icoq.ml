@@ -1,7 +1,7 @@
 open Wacoq_proto.Proto
 
 
-external emit : string -> unit = "wacoq_emit"
+external emit : string -> unit = "wacoq_emit" (* implemented in `core.ts` *)
 
 let make_coqpath ?(implicit=true) unix_path lib_path =
   Loadpath.{
@@ -235,7 +235,7 @@ let info_string () =
               "waCoq %s, Coq %s/%4d (%s),\n  compiled on %s\n"
               wacoqv coqv (Int32.to_int cmag) coqd ccd              in
   let info2 = Printf.sprintf
-              "OCaml %s (wasi-sdk-11)\n" ccv                        in
+              "OCaml %s (wasi-sdk-12)\n" (* @oops *) ccv            in
   info1 ^ info2
 
 
