@@ -37,16 +37,16 @@ install:
 	dune install coq
 
 dist-npm:
-	rm -rf staging
-	npx parcel build -d staging/dist --no-source-maps --target node src/cli.ts
-	npx parcel build -d staging/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
-	npx parcel build -d staging/dist --no-source-maps src/worker.ts
-	cp package.json index.js README.md staging/
-	mkdir staging/bin && ln -s ${addprefix ../../bin/, icoq.bc coq} staging/bin/
-	mkdir staging/etc && cp etc/postinstall.js staging/etc
+	rm -rf package
+	npx parcel build -d package/dist --no-source-maps --target node src/cli.ts
+	npx parcel build -d package/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
+	npx parcel build -d package/dist --no-source-maps src/worker.ts
+	cp package.json index.js README.md package/
+	mkdir package/bin && ln -s ${addprefix ../../bin/, icoq.bc coq} package/bin/
+	mkdir package/etc && cp etc/postinstall.js package/etc
 	tar zchf wacoq-bin-$(PACKAGE_VERSION).tar.gz \
 	    --exclude='coqlib/**' --exclude='*.*.js' --exclude='*.so' \
-	    -C staging ./package.json ./index.js ./dist ./bin ./etc
+	    ${addprefix package/, package.json index.js dist bin etc}
 
 ########################################################################
 # Externals

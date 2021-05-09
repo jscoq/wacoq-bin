@@ -9,7 +9,7 @@ node_modules
 /bin/coq/*.coq-pkg
 /dist
 /public
-/staging
+/package
 
 *.tar.gz
 
