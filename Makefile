@@ -37,9 +37,9 @@ install:
 
 dist-npm:
 	rm -rf staging
-	parcel build -d staging/dist --no-source-maps --target node src/cli.ts
-	parcel build -d staging/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
-	parcel build -d staging/dist --no-source-maps src/worker.ts
+	npx parcel build -d staging/dist --no-source-maps --target node src/cli.ts
+	npx parcel build -d staging/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
+	npx parcel build -d staging/dist --no-source-maps src/worker.ts
 	cp package.json index.js README.md staging/
 	mkdir staging/bin && ln -s ../../bin/{icoq.bc,coq} staging/bin/
 	mkdir staging/etc && cp etc/postinstall.js staging/etc
@@ -55,7 +55,7 @@ dist-npm:
 
 COQ_SRC = vendor/coq
 
-COQ_BRANCH = V8.13.0
+COQ_BRANCH = V8.13.2
 COQ_REPOS=https://github.com/coq/coq.git
 
 COQ_PATCHES = timeout $(COQ_PATCHES|$(WORD_SIZE))
@@ -63,7 +63,7 @@ COQ_PATCHES = timeout $(COQ_PATCHES|$(WORD_SIZE))
 COQ_PATCHES|64 = coerce-32bit
 
 $(COQ_SRC):
-	git clone --depth=1 -b $(COQ_BRANCH) $(COQ_REPOS) $@
+	git clone -c advice.detachedHead=false --depth=1 -b $(COQ_BRANCH) $(COQ_REPOS) $@
 	cd $@ && git apply ${foreach p,$(COQ_PATCHES),$(current_dir)/etc/patches/$p.patch}
 
 coq: $(COQ_SRC)

@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@ocaml-wasm/4.10--num": "^1.4.0-0",
-    "@ocaml-wasm/4.10--zarith": "file:../../ext/wasm/ports/ocaml/libs/zarith/ocaml-wasm-4.10--zarith-1.12.0-0.tgz",
+    "@ocaml-wasm/4.10--zarith": "^1.12.0-0",
     "array-equal": "^1.0.0",
     "byline": "^5.0.0",
     "commander": "^5.1.0",
@@ -33,7 +33,7 @@
     "jszip-unzip": "^3.4.0-0",
     "mkdirp": "^1.0.4",
     "neatjson": "^0.8.3",
-    "ocaml-wasm": "file:../../ext/wasm/ports/ocaml/ocaml-4.10/ocaml-wasm-4.10.2-2.tgz",
+    "ocaml-wasm": "^4.10.2-2",
     "wasi-kernel": "file:../Web.OS.Kernel/wasi-kernel-0.1.4.tgz"
   },
   "devDependencies": {
