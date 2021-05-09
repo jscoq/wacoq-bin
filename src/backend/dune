@@ -9,10 +9,9 @@
 (rule
  (target wacoq_version.ml)
  (deps ../../package.json)
- (action
-  (bash "node -p \
-      '`let version = \"${require(\"../../package.json\").version}\"`' \
-      > %{target}")))
+ (action (with-stdout-to %{target}
+  (run node -p
+      "`let version = \"${require(\"../../package.json\").version}\"`"))))
 
 (rule
  (targets dllbyterun_stubs.wasm)
