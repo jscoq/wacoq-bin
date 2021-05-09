@@ -41,7 +41,7 @@ dist-npm:
 	npx parcel build -d staging/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
 	npx parcel build -d staging/dist --no-source-maps src/worker.ts
 	cp package.json index.js README.md staging/
-	mkdir staging/bin && ln -s ../../bin/{icoq.bc,coq} staging/bin/
+	mkdir staging/bin && ln -s ${addprefix ../../bin/, icoq.bc coq} staging/bin/
 	mkdir staging/etc && cp etc/postinstall.js staging/etc
 	tar zchf wacoq-bin-$(PACKAGE_VERSION).tar.gz \
 	    --exclude='coqlib/**' --exclude='*.*.js' --exclude='*.so' \
