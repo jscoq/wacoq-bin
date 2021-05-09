@@ -25,6 +25,7 @@ deps: coq coq-serapi
 wacoq:
 	dune build @coq @wacoq coq-pkgs
 	mkdir -p dist && cp _build/$(BUILD_CONTEXT)/cli.js dist/cli.js
+	ln -sf ${foreach m, ${wildcard _build/$(BUILD_CONTEXT)/coq-pkgs/*}, ../../$m} bin/coq/
 
 wacoq-only:
 	dune build @wacoq
