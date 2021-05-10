@@ -28,11 +28,17 @@
   (run node ./cli.js --nostdlib src/build/metadata/coq-pkgs.json)))
 
 (rule
+ (target node_modules)
+ (action
+  (run ln -s ../../node_modules .)))
+
+(rule
  (targets cli.js)
  (deps
   (source_tree src)
+  node_modules
   tsconfig.json
-  package.json)
+  package.json
+  webpack.config.js)
  (action
-  (progn
-   (run npx parcel build -d . --target node src/cli.ts))))
+  (run npx --no-install webpack --mode production --env outDir=. --config-name cli)))

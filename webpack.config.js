@@ -59,7 +59,7 @@ module.exports = (env, argv) => [
   externalsPresets: {node: true},
   externals: [nodeExternals()],
   ...typescript,
-  ...out(env, 'ci.js'),
+  ...out(env, 'cli.js'),
   plugins: [
     new webpack.BannerPlugin({banner: '#!/usr/bin/env node', raw: true}),
     new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1}),

@@ -10,8 +10,9 @@ COQBUILDDIR := $(current_dir)/_build/$(BUILD_CONTEXT)/$(COQBUILDDIR_REL)
 
 PACKAGE_VERSION = ${shell node -p 'require("./package.json").version'}
 
+DUNE = eval `opam env --switch $(BUILD_CONTEXT)` && dune
 
-.PHONY: default bootstrap setup deps wacoq clean distclean
+.PHONY: default bootstrap setup deps wacoq clean distclean _*
 
 default: wacoq
 
@@ -22,19 +23,22 @@ setup:
 
 deps: coq coq-serapi
 
-wacoq:
-	dune build @coq @wacoq coq-pkgs
+wacoq: | _build _wrapup  # need to sequentialize for ${wildcard}
+
+_build:
+	$(DUNE) build @coq @wacoq coq-pkgs
+_wrapup:
 	mkdir -p dist && cp _build/$(BUILD_CONTEXT)/cli.js dist/cli.js
 	ln -sf ${foreach m, ${wildcard _build/$(BUILD_CONTEXT)/coq-pkgs/*}, ../../$m} bin/coq/
 
 wacoq-only:
-	dune build @wacoq
+	$(DUNE) build @wacoq
 
 install:
 	# This unfortunately deletes some wacoq build artifacts
 	# (re-run `make wacoq` to restore)
-	dune build -p coq
-	dune install coq
+	$(DUNE) build -p coq
+	$(DUNE) install coq
 
 dist-npm:
 	rm -rf package
@@ -78,7 +82,7 @@ coq-serapi:
 	git submodule update $(SERAPI_SRC)
 
 clean:
-	dune clean
+	$(DUNE) clean
 
 distclean: clean
 	rm -rf vendor/coq
