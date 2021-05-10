@@ -42,7 +42,8 @@ install:
 
 dist-npm:
 	rm -rf package
-	npx webpack --mode production --env outDir=package/dist
+	npx webpack --mode production --env outDir=package/dist \
+	    ${addprefix --config-name , cli worker subproc}
 	cp package.json index.js README.md package/
 	mkdir package/bin && ln -s ${addprefix ../../bin/, icoq.bc coq} package/bin/
 	mkdir package/etc && cp etc/postinstall.js package/etc

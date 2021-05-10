@@ -34,7 +34,7 @@ class PackageIndex {
     }
 
     async addBlob(pkg: Blob) {
-        var z = await (await import('JSZip')).loadAsync(pkg),
+        var z = await (await import('jszip')).loadAsync(pkg),
             manifest = JSON.parse(await z.file('coq-pkg.json').async('string'));
         manifest.archive = URL.createObjectURL(pkg);
         this.add(manifest);
