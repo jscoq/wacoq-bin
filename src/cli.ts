@@ -3,7 +3,7 @@
 
 import path from 'path';
 import commander from 'commander';
-import { version } from '../package.json';
+import manifest from '../package.json';
 import { FormatPrettyPrint } from './ui/format-pprint';
 import { JsCoqCompat } from './build/project';
 import { Workspace } from './build/workspace';
@@ -202,7 +202,7 @@ async function main() {
 
     var opts = commander
         .name('wacoq')
-        .version(version, '-v, --version')
+        .version(manifest.version, '-v, --version')
         .option('--workspace <w.json>',       'build projects from specified workspace')
         .option('--rootdir <dir>',            'toplevel directory for finding `.v` and `.vo` files')
         .option('--top <name>',               'logical name of toplevel directory')

@@ -2,7 +2,7 @@
   "name": "wacoq-bin",
   "version": "0.13.0-rc1",
   "description": "WASM Binaries of the Coq Proof Assistant (for jsCoq)",
-  "main": "dist/index.html",
+  "main": "index.html",
   "author": "corwin-of-amber",
   "repository": {
     "type": "git",
@@ -10,8 +10,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "parcel build src/worker.ts && etc/build-node.sh",
-    "dev": "parcel watch --hmr-hostname=localhost --public-url '.' src/index.html src/worker.ts",
+    "build": "webpack",
+    "dev": "webpack -w",
     "dist": "make dist-npm",
     "postinstall": "node ./etc/postinstall.js"
   },
@@ -41,8 +41,17 @@
     "@types/jquery": "^3.5.0",
     "@types/mkdirp": "^1.0.1",
     "@types/node": "^14.0.27",
+    "buffer": "^5.7.1",
     "cssnano": "^5.0.2",
-    "typescript": "^4.1.3"
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "ts-loader": "^9.1.2",
+    "typescript": "^4.1.3",
+    "webpack": "^5.36.2",
+    "webpack-bundle-analyzer": "^4.4.1",
+    "webpack-cli": "^4.7.0",
+    "webpack-node-externals": "^3.0.0"
   },
   "bundledDependencies": [
     "jszip",

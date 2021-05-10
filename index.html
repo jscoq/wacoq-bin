@@ -2,8 +2,8 @@
 
 <html>
     <head>
-        <script src="startup.ts"></script>
-        <link href="ui/console.css" rel="stylesheet" type="text/css">
+        <script src="dist/startup.js"></script>  <!-- built by webpack -->
+        <link href="src/ui/console.css" rel="stylesheet" type="text/css">
     </head>
     <body>
         <div id="console">
@@ -20,6 +20,5 @@
     </body>
     <script>
         if (window.main) window.main();
-        else if (process.env.NODE_ENV == 'development') location.reload();
     </script>
 </html>

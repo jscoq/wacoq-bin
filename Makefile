@@ -11,7 +11,7 @@ COQBUILDDIR := $(current_dir)/_build/$(BUILD_CONTEXT)/$(COQBUILDDIR_REL)
 PACKAGE_VERSION = ${shell node -p 'require("./package.json").version'}
 
 
-.PHONY: default bootstrap setup deps wacoq coq-pkgs
+.PHONY: default bootstrap setup deps wacoq clean distclean
 
 default: wacoq
 
@@ -38,9 +38,7 @@ install:
 
 dist-npm:
 	rm -rf package
-	npx parcel build -d package/dist --no-source-maps --target node src/cli.ts
-	npx parcel build -d package/dist --no-source-maps --target node -o subproc.js src/backend/subproc/index.ts
-	npx parcel build -d package/dist --no-source-maps src/worker.ts
+	npx webpack --mode production --env outDir=package/dist
 	cp package.json index.js README.md package/
 	mkdir package/bin && ln -s ${addprefix ../../bin/, icoq.bc coq} package/bin/
 	mkdir package/etc && cp etc/postinstall.js package/etc
@@ -78,3 +76,9 @@ SERAPI_SRC = vendor/coq-serapi
 
 coq-serapi:
 	git submodule update $(SERAPI_SRC)
+
+clean:
+	dune clean
+
+distclean: clean
+	rm -rf vendor/coq

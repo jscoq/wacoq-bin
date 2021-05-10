@@ -419,10 +419,4 @@ class FormatPrettyPrint {
 }
 
 
-
-if (typeof module !== 'undefined')
-    module.exports = {FormatPrettyPrint}
-
-// Local Variables:
-// js-indent-level: 4
-// End:
+export { FormatPrettyPrint }

@@ -21,7 +21,7 @@ function main(opts: any = {}) {
         coqlib = worker.binDir + '/coqlib';
     }
     else {
-        worker = new Worker(0 || './worker.js');  // bypass Parcel (fails to build worker at the moment)
+        worker = new Worker(0 || './dist/worker.js');  // bypass Parcel (fails to build worker at the moment)
     }
 
     function sendCommand(cmd: any) {
