@@ -8,6 +8,7 @@ import { FormatPrettyPrint } from './ui/format-pprint';
 import { JsCoqCompat } from './build/project';
 import { Workspace } from './build/workspace';
 import { Batch, CompileTask, BuildError } from './build/batch';
+import { main as coqc } from './sdk';
 
 // @ts-ignore
 global.parcelRequire = undefined;  // bundle isolation :/
@@ -199,6 +200,10 @@ class CLI {
 async function main() {
 
     var loads: string[] = [];
+
+    /* sdk */
+    if (process.argv[2] === 'coqc')
+        return await coqc(process.argv.slice(3));
 
     var opts = commander
         .name('wacoq')
