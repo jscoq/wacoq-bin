@@ -10,7 +10,8 @@ COQBUILDDIR := $(current_dir)/_build/$(BUILD_CONTEXT)/$(COQBUILDDIR_REL)
 
 PACKAGE_VERSION = ${shell node -p 'require("./package.json").version'}
 
-DUNE = eval `opam env --switch $(BUILD_CONTEXT)` && dune
+OPAM_ENV = eval `opam env --set-switch --switch $(BUILD_CONTEXT)`
+DUNE = $(OPAM_ENV) && dune
 
 .PHONY: default bootstrap setup deps wacoq clean distclean _*
 
@@ -71,7 +72,7 @@ $(COQ_SRC):
 	cd $@ && git apply ${foreach p,$(COQ_PATCHES),$(current_dir)/etc/patches/$p.patch}
 
 coq: $(COQ_SRC)
-	eval `opam env --switch=$(BUILD_CONTEXT)` && \
+	$(OPAM_ENV) && \
 	cd $(COQ_SRC) && ./configure -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no
 
 
@@ -84,6 +85,7 @@ coq-serapi:
 
 clean:
 	$(DUNE) clean
+	rm -f wacoq-bin-*.tar.gz
 
 distclean: clean
 	rm -rf vendor/coq
