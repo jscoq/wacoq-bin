@@ -89,3 +89,10 @@ clean:
 
 distclean: clean
 	rm -rf vendor/coq
+
+ci:
+	$(MAKE) distclean
+	$(MAKE) coq
+	$(MAKE) && $(MAKE) dist-npm
+	$(MAKE) install
+	npm link    # makes `wacoq` cli available
