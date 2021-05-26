@@ -34,8 +34,6 @@ class IcoqPod extends EventEmitter {
         this._preloadStub();
     
         await this.core.run('/lib/icoq.bc', [], ['wacoq_post']);
-    
-        await this.loadPackage('+init', false);    
     }
 
     async upload(fromUri: string, toPath: string) {
@@ -51,8 +49,14 @@ class IcoqPod extends EventEmitter {
         if (typeof uris == 'string') uris = [uris];
         
         await Promise.all(uris.map(async uri => {
-            await this.unzip(uri, '/lib');
-            this._progress(uri, undefined, true);
+            try {
+                await this.unzip(uri, '/lib');
+                this.answer([['LibLoaded', uri]]);
+            }
+            catch (e) {
+                this.answer([['LibError', uri, e.toString()]]);
+                throw e;
+            }
         }));
 
         if (refresh)
@@ -77,8 +81,8 @@ class IcoqPod extends EventEmitter {
             `${this.binDir}/coq/${uri.substring(1)}.coq-pkg` : uri;
     }
 
-    _progress(uri: string, download: DownloadProgress, done = false) {
-        this.emit('progress', {uri, download, done});
+    _progress(uri: string, download: DownloadProgress) {
+        this.emit('progress', {uri, download});
     }
 
     putFile(filename: string, content: Uint8Array | string) {
@@ -137,6 +141,8 @@ class IcoqPod extends EventEmitter {
 
 class IO {
 
+    pending = new Set<ReadableStreamDefaultReader<Uint8Array>>()
+
     async unzip(uri: string, put: (filename: string, content: Uint8Array) => void, progress?: (p: any) => void) {
         var zip = unzipSync(await this._fetch(uri, progress));
 
@@ -171,14 +177,18 @@ class IO {
         var response = await fetch(uri),
             total = +response.headers.get('Content-Length') || 1000,
             r = response.body.getReader(), chunks = [], downloaded = 0;
-        for(;;) {
-            var {value, done} = await r.read();
-            if (done) break;
-            chunks.push(value);
-            downloaded += value.length;
-            progress({total, downloaded})
+        this.pending.add(r); // prevent reader from being disposed
+        try {
+            for(;;) {
+                var {value, done} = await r.read();
+                if (done) break;
+                chunks.push(value);
+                downloaded += value.length;
+                progress({total, downloaded})
+            }
+            return new Blob(chunks);
         }
-        return new Blob(chunks);
+        finally { this.pending.delete(r); }
     }
 
 }
