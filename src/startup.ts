@@ -30,7 +30,10 @@ function main(opts: any = {}) {
 
     var consl = new InteractiveConsole(),
         tip = 0,
-        queue = ['Check nat.', 'Check Prop.'];
+        queue = ['Check nat.', 'Check Prop.',
+                 'Require Import Lia.',
+                 'Goal 5 < 90.', 'lia.'
+    ];
 
     worker.addEventListener('message', (ev) => {
         console.log(ev.data);
@@ -42,7 +45,11 @@ function main(opts: any = {}) {
         case 'Boot':
             milestone('Boot');
             sendCommand(['Init', {coqlib}]);
-            sendCommand(['NewDoc', {}]);  break;
+            worker.postMessage(['LoadPkg', '+init']);  break;
+        case 'LoadedPkg':
+            if (ev.data[1].includes('+init'))
+                sendCommand(['NewDoc', {}]);
+            break;
         case 'Ready':
             milestone('Ready');
             consl.showProgress('Starting', {done: true});
@@ -81,6 +88,9 @@ function main(opts: any = {}) {
                     msg = `Downloading ${basename}...`;
                 consl.showProgress(e.uri, e, msg);
             }
+            break;
+        case 'LibLoaded':
+            consl.showProgress(ev.data[1], {done: true});
             break;
         }
     });

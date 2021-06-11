@@ -106,11 +106,11 @@ class PackageIndex {
     }
 
     handleEvent(ev: any) {
-        if (ev.data[0] === 'LibProgress') {
-            var e = ev.data[1];
-            if (e.done) {
-                var name = e.uri.replace(/^([+]|.*[/])/, '')
-                                .replace(/[.][^.]*$/, '');
+        switch (ev.data[0]) {
+        case 'LoadedPkg':
+            for (let uri of ev.data[1]) {
+                var name = uri.replace(/^([+]|.*[/])/, '')
+                              .replace(/[.][^.]*$/, '');
                 this.loaded.push(name);
                 if (this.futures[name]) this.futures[name].resolve();
             }
