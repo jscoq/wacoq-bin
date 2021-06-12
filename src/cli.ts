@@ -8,10 +8,7 @@ import { FormatPrettyPrint } from './ui/format-pprint';
 import { JsCoqCompat } from './build/project';
 import { Workspace } from './build/workspace';
 import { Batch, CompileTask, BuildError } from './build/batch';
-import { main as coqc } from './sdk';
-
-// @ts-ignore
-global.parcelRequire = undefined;  // bundle isolation :/
+import * as sdk from './sdk';
 
 import { IcoqPod } from './backend/core';
 
@@ -199,15 +196,13 @@ class CLI {
 
 async function main() {
 
-    var loads: string[] = [];
+    var loads: string[] = [],
+        rc = 0;
 
-    /* sdk */
-    if (process.argv[2] === 'coqc')
-        return await coqc(process.argv.slice(3));
-
-    var opts = commander
+    var prog = commander
         .name('wacoq')
-        .version(manifest.version, '-v, --version')
+        .version(manifest.version);
+    prog.command('build', {isDefault: true})
         .option('--workspace <w.json>',       'build projects from specified workspace')
         .option('--rootdir <dir>',            'toplevel directory for finding `.v` and `.vo` files')
         .option('--top <name>',               'logical name of toplevel directory')
@@ -221,10 +216,16 @@ async function main() {
         .option('--nostdlib',                 'skip loading the standard Coq packages')
         .option('--jscoq',                    'jsCoq compatibility mode')
         .on('option:load', pkg => loads.push(...pkg.split(',')))
-        .parse(process.argv);
+        .action(async opts => { rc = await build(opts, loads); });
+    
+    sdk.installCommand(prog);
 
-    if (opts.args[0] === 'build') opts.args.shift();
+    await prog.parseAsync(process.argv);
+    return rc;
+}
 
+
+async function build(opts: any, loads: string[]) {
     if (opts.args.length > 0) {
         if (!opts.workspace && opts.args[0].endsWith('.json'))
             opts.workspace = opts.args.shift();

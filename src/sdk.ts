@@ -5,6 +5,7 @@ import findUp from 'find-up';
 import glob from 'glob';
 import unzip from 'fflate-unzip';
 import chld from 'child-process-promise';
+import type commander from 'commander';
 
 
 const SDK = '/tmp/wacoq-sdk';
@@ -113,5 +114,13 @@ async function main(args: string[]) {
     }
 }
 
+function installCommand(commander: commander.CommanderStatic) {
+    commander.command('coqc')
+        .description("Runs `coqc` with waCoq's standard library.")
+        .allowUnknownOption(true)
+        .helpOption('-z', '(run `wacoq coqc -help` instead)')
+        .action(async opts => { await main(opts.args); });
+}
 
-export { main }
+
+export { main, installCommand }
