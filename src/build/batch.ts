@@ -58,7 +58,7 @@ class BatchWorker extends Batch {
 }
 
 
-class CompileTask extends EventEmitter{
+class CompileTask extends EventEmitter {
 
     batch: Batch
     inproj: CoqProject
@@ -116,6 +116,7 @@ class CompileTask extends EventEmitter{
             await this.batch.do(
                 ['Init', {top_name: logical.join('.')}],
                 ['Put', infn, volume.fs.readFileSync(physical)],
+                /** @todo need NewDoc too now */
                 ['Load', infn],            msg => msg[0] == 'Loaded',
                 ['Compile', outfn],        msg => msg[0] == 'Compiled');
 
@@ -166,8 +167,65 @@ type CompileTaskOptions = {
 };
 
 
+class AnalyzeTask {
+
+    batch: Batch
+
+    constructor(batch: Batch) {
+        this.batch = batch;
+    }
+
+    async prepare() {
+        await this.batch.do(
+            ['Init', {}],
+            ['NewDoc', {}],   msg => msg[0] === 'Ready'
+        );
+    }
+
+    async runVernac(cmds: string[]) {
+        let add = (st: string) => ['Add', null, null, st, true],
+            vernac = (st: string) => [add(st), msg => msg[0] === 'Added'];
+
+        try {
+            var vr = await this.batch.do(...([].concat(...cmds.map(vernac))));
+        }
+        catch { console.log('> vernac execution failed.'); throw new BuildError(); }
+
+        var tip = vr.length > 0 ? vr.slice(-1)[0][1] : 0;
+        if (tip)
+            await this.batch.do(['Exec', tip]);  /** @todo wait for `Processed`? */
+        return tip;
+    }
+
+    async inspectSymbolsOfModules(pkgs: {[pkg: string]: string[]}) {
+        var modules = [].concat(...Object.values(pkgs)) as string[],
+            tip = await this.runVernac(modules.map(mp => `Require Import ${mp}.`)),
+            qinspect = (mp: string) =>
+                ['Query', tip, 0, ['Inspect', ['ModulePrefix', mp]]];
+
+        var sr = await this.batch.do(...[].concat(...
+            modules.map(mp => [qinspect(mp),  msg => msg[0] === 'SearchResults'])));
+
+        var symb = Object.fromEntries(Object.keys(pkgs).map(k => [k, []]));
+
+        for (let r of sr) {
+            for (let entry of r[2]) {
+                var label = entry.basename[1],
+                    prefix = entry.dirpath[1].map(x => x[1]).reverse(),
+                    mp = prefix.join('.');
+                for (let [pkg, mns] of Object.entries(pkgs))
+                    if (mns.includes(mp)) symb[pkg].push({prefix, label});
+            }
+        }
+
+        return symb;
+    }
+
+}
+
+
 class BuildError { }
 
 
 
-export { Batch, BatchWorker, CompileTask, CompileTaskOptions, BuildError }
+export { Batch, BatchWorker, CompileTask, CompileTaskOptions, AnalyzeTask, BuildError }

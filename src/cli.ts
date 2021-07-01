@@ -1,20 +1,21 @@
 // Build with
 //  parcel watch --target node src/cli.ts
 
+import fs from 'fs';
 import path from 'path';
 import commander from 'commander';
 import manifest from '../package.json';
 import { FormatPrettyPrint } from './ui/format-pprint';
 import { JsCoqCompat } from './build/project';
 import { Workspace } from './build/workspace';
-import { Batch, CompileTask, BuildError } from './build/batch';
+import { Batch, CompileTask, BuildError, AnalyzeTask } from './build/batch';
 import * as sdk from './sdk';
 
 import { IcoqPod } from './backend/core';
 
 
 
-class BatchPod extends Batch {
+class IcoqPodBatch extends Batch {
 
     icoq: IcoqPod;
     queue: any[][];
@@ -40,20 +41,34 @@ class BatchPod extends Batch {
             if (yes(msg))     return Promise.resolve(msg);
             else if (no(msg)) return Promise.reject(msg);
         }
+        // not found
+        return Promise.reject({reason: 'expected response not found'});
     }
-
-    
 
 }
 
 
 class IcoqPodCLI extends IcoqPod {
 
-    pp = new FormatPrettyPrint();
+    pp = new FormatPrettyPrint()
+    verbose = true
 
     constructor() {
         super();
         this.on('message', msg => this.handleIncoming(msg));
+    }
+
+    async startBatch(opts: any = {}) {
+        await this.boot();
+        if (opts.loads)
+            await this.loadPackages(opts.loads);
+
+        var batch = new IcoqPodBatch(this);
+        await batch.do(
+            ['Init', {}],
+            ['NewDoc', {}],   msg => msg[0] === 'Ready'
+        );
+        return batch;
     }
 
     handleIncoming(msg: any[]) {
@@ -69,7 +84,7 @@ class IcoqPodCLI extends IcoqPod {
                 console.error(`\n${msg[1].fname[1]}:${msg[1].line_nb}:`);
             console.error(this.pp.pp2Text(msg[3]));                   break;
         default:
-            console.log(msg);
+            if (this.verbose) console.log(msg);
         }
     }
 
@@ -112,10 +127,6 @@ class CLI {
             workspace.openProjectDirect(opts.package || path.basename(opts.rootdir),
                                         opts.rootdir, opts.top,
                                         opts.dirpaths.split(/[, ]/));
-        else {
-            console.error('what to build? specify either rootdir or workspace.');
-            throw new BuildError();
-        }
         this.workspace = workspace;
     }
 
@@ -128,7 +139,7 @@ class CLI {
         await icoq.loadPackages(opts.loads);
     
         for (let [pkgname, inproj] of Object.entries(this.workspace.projs)) {
-            var task = new CompileTask(new BatchPod(icoq), inproj, <any>opts);
+            var task = new CompileTask(new IcoqPodBatch(icoq), inproj, <any>opts);
 
             await task.run(pkgname);
             var out = await out.toPackage(
@@ -177,6 +188,31 @@ class CLI {
             return this.workspace.createBundle(opts.package);
     }
 
+    async inspect(pkgNames: string[], opts = this.opts) {
+        var icoq = new IcoqPodCLI();
+        icoq.verbose = false;
+
+        var analyze = new AnalyzeTask(await icoq.startBatch(opts)),
+            symb = await analyze.inspectSymbolsOfModules(
+                this.listModuleNames(pkgNames));
+
+        for (let [pkg, lemmas] of Object.entries(symb)) {
+            var outfn = `${pkg.replace(/\.coq-pkg$/, '')}.symb.json`;
+            if (opts.outdir)
+                outfn = path.join(opts.outdir, path.basename(outfn));
+            fs.writeFileSync(outfn, JSON.stringify({lemmas}));
+            console.log(`wrote ${outfn}.   { lemmas: ${lemmas.length} }`);
+        }
+    }
+
+    listModuleNames(pkgNames: string[]) {
+        var pkgs = this.workspace.listPackageContents(new RegExp(pkgNames.join('|')));
+    
+        return Object.fromEntries(Object.entries(pkgs).map(([k, v]) =>
+            [k, v.map(mod => mod.logical.join('.'))]
+        ));
+    }
+
     static stdlib() {
         return require('./build/metadata/coq-pkgs.json');
     }
@@ -216,8 +252,14 @@ async function main() {
         .option('--nostdlib',                 'skip loading the standard Coq packages')
         .option('--jscoq',                    'jsCoq compatibility mode')
         .on('option:load', pkg => loads.push(...pkg.split(',')))
-        .action(async opts => { rc = await build(opts, loads); });
+        .action(async opts => { rc = await build({...opts, loads}); });
     
+    prog.command('inspect')
+        .option('--load <f.coq-pkg>',         'load package(s) for compilation and for module dependencies (comma separated, may repeat)')
+        .option('-d,--outdir <dir>',          'set output directory')
+        .on('option:load', pkg => loads.push(...pkg.split(',')))
+        .action(async opts => { rc = await inspect({...opts, loads}); });
+
     sdk.installCommand(prog);
 
     await prog.parseAsync(process.argv);
@@ -225,7 +267,7 @@ async function main() {
 }
 
 
-async function build(opts: any, loads: string[]) {
+async function build(opts: any) {
     if (opts.args.length > 0) {
         if (!opts.workspace && opts.args[0].endsWith('.json'))
             opts.workspace = opts.args.shift();
@@ -238,16 +280,34 @@ async function build(opts: any, loads: string[]) {
         }
     }
 
-    opts.loads = loads;
-
     var cli = new CLI(opts);
 
     try {
         await cli.prepare();
+        if (Object.keys(cli.workspace.projs).length === 0) {
+            console.error('what to build? specify either rootdir or workspace.');
+            throw new BuildError();
+        }
+
         if (opts.compile)
             await cli.compile();
         else
             await cli.package();
+
+        return cli.errors ? 1 : 0;
+    }
+    catch (e) {
+        if (e instanceof BuildError) return 1;
+        else throw e;
+    }
+}
+
+async function inspect(opts: any) {
+    var cli = new CLI(opts);
+
+    try {
+        await cli.prepare();
+        await cli.inspect(opts.args, opts);
 
         return cli.errors ? 1 : 0;
     }

@@ -2,12 +2,12 @@
 //  parcel watch --hmr-hostname=localhost --public-url '.' src/index.html src/worker.ts &
 
 import { PackageIndex } from './backend/packages';
-import { IcoqSubprocess } from './backend/subproc';
+import type { IcoqSubprocess } from './backend/subproc';
 import { InteractiveConsole } from './ui/console';
 
 
 
-function main(opts: any = {}) {
+async function main(opts: any = {}) {
     var startTime = +new Date(),
         elapsed = () => +new Date() - startTime;
 
@@ -17,6 +17,7 @@ function main(opts: any = {}) {
 
     var worker: Worker | IcoqSubprocess, coqlib: string;
     if (opts.subproc) {
+        const { IcoqSubprocess } = await import('./backend/subproc');
         worker = new IcoqSubprocess();
         coqlib = worker.binDir + '/coqlib';
     }

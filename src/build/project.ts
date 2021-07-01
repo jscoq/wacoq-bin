@@ -325,6 +325,15 @@ class SearchPath {
             if (mod.pkg === pkg) yield mod;
     }
 
+    modulesByExt(ext: string) {
+        return this.modulesByExts([ext]);
+    }
+
+    *modulesByExts(exts: string[]) {
+        for (let mod of this.modules())
+            if (exts.some(ext => mod.physical.endsWith(ext))) yield mod;
+    }
+
     listModules() {
         return this._listNames(this.modules());
     }
