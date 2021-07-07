@@ -199,12 +199,12 @@ class AnalyzeTask {
 
     async inspectSymbolsOfModules(pkgs: {[pkg: string]: string[]}) {
         var modules = [].concat(...Object.values(pkgs)) as string[],
-            tip = await this.runVernac(modules.map(mp => `Require Import ${mp}.`)),
-            qinspect = (mp: string) =>
-                ['Query', tip, 0, ['Inspect', ['ModulePrefix', mp]]];
+            tip = await this.runVernac(modules.map(mp => `Require Import ${mp}.`));
 
-        var sr = await this.batch.do(...[].concat(...
-            modules.map(mp => [qinspect(mp),  msg => msg[0] === 'SearchResults'])));
+        var sr = await this.batch.do(
+            ['Query', tip, 0, ['Inspect', ['All']]],
+            msg => msg[0] === 'SearchResults'
+        );
 
         var symb = Object.fromEntries(Object.keys(pkgs).map(k => [k, []]));
 
