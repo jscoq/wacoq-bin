@@ -258,14 +258,14 @@ let exec_query sid ~route query =
   | Inspect q -> [SearchResults (route, Interpreter.inspect sid q)]
 
 
-let capture_exn ?sid ?(rid=0) ?(status=fun c -> []) op =
+let capture_exn ?sid ?(rid=0) ?(status=fun c -> []) ?(level=Feedback.Error) op =
   let sid = Option.default Stateid.dummy sid in
   let feed contents = Feedback { doc_id = 0; span_id = sid; route = rid; contents } in
   let fin (c: Feedback.feedback_content) = List.map feed (status c) in
   try op () @ fin Complete
   with exn ->
     let CoqExn(loc,_,msg) = coq_exn_info exn [@@warning "-8"] in
-    [feed (Message(Error, loc, msg))] @ fin Incomplete
+    [feed (Message(level, loc, msg))] @ fin Incomplete
 
 
 let wacoq_execute = function
@@ -276,7 +276,7 @@ let wacoq_execute = function
                                  add_or_pend ?from ?newid stm ~resolve)
   | Exec sid ->                ignore @@ Interpreter.observe ~sid ; []
   | Cancel sid ->              [BackTo (Interpreter.cancel ~sid)]
-  | Query (sid, rid, q) ->     capture_exn ~sid ~rid ~status:(fun c -> [c])
+  | Query (sid, rid, q) ->     capture_exn ~sid ~rid ~status:(fun c -> [c]) ~level:Warning
                                  (fun () -> exec_query sid ~route:rid q)
   | RefreshLoadPath ->         Interpreter.refresh_load_path () ; []
 
