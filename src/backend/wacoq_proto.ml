@@ -9,6 +9,24 @@ module Pp       = Serlib.Ser_pp
 
 module Libnames = Serlib.Ser_libnames
 
+module Ser_nametab = struct
+  include Nametab
+  type object_prefix = [%import: Nametab.object_prefix]
+   [@@deriving yojson]
+end
+
+module Nametab = Ser_nametab
+
+module Ser_inspect = struct
+  include Inspect
+  type qualified_object_prefix = [%import: Inspect.qualified_object_prefix]
+  [@@deriving yojson]
+  type qualified_name = [%import: Inspect.qualified_name]
+  [@@deriving yojson]
+end
+
+module Inspect = Ser_inspect
+
 module Seq = struct
   type 'a t = 'a Seq.t
   let to_yojson f s = `List (Seq.fold_left (fun l x -> f x :: l) [] s |> List.rev)
@@ -93,7 +111,7 @@ type wacoq_answer =
   (* Query responses *)
   | ModeInfo  of Stateid.t * in_mode
   | GoalInfo  of Stateid.t * Goals.t option
-  | SearchResults of Feedback.route_id * Libnames.full_path Seq.t
+  | SearchResults of Feedback.route_id * Inspect.qualified_name Seq.t
 
   | Loaded    of string * Stateid.t
   | Compiled  of string

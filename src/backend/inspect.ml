@@ -5,6 +5,21 @@ type search_query =
   | Keyword of string
   | Locals
 
+type qualified_object_prefix = {
+  dp: Names.DirPath.t;
+  mod_ids: Names.Id.t list
+}
+
+type qualified_name = {
+  prefix: qualified_object_prefix;
+  basename: Names.Id.t
+}
+
+let string_of_qualified_name qn =
+  let {prefix = {dp; mod_ids}; basename} = qn in (* todo use `ids` as well *)
+  let dp = match Names.DirPath.repr dp with
+    | [] -> [] | _ -> [Names.DirPath.to_string dp] in
+  String.concat "." (dp @ (List.map Names.Id.to_string mod_ids) @ [Names.Id.to_string basename])
 
 (* - basic utilities - *)
 
@@ -22,16 +37,34 @@ let rec seq_append s1 s2 = fun () ->  (* Stdlib does not provide this :( *)
   | Seq.Nil -> s2 ()
   | Seq.Cons (x, xs) -> Seq.Cons (x, seq_append xs s2)
 
-let is_within path prefix =
-  let dp, _ = Libnames.repr_path path in
+let is_within qn prefix =
+  let {prefix = {dp}} = qn in
   Libnames.is_dirpath_prefix_of prefix dp
+
+let dp_of_mp mp = (* Like `Lib.dp_of_mp`, but includes the module path *)
+  let dp, ids = Lib.split_modpath mp in
+  Names.DirPath.make @@ Names.DirPath.repr dp @ ids
+
+let qualified_object_prefix_of_mp mp =
+  let dp, mod_ids = Lib.split_modpath mp in {dp; mod_ids}
+
+let qualified_object_prefix_of_dp dp = {dp; mod_ids = []}
+
+let qualified_name_of_kn kn =
+  let mp, l = Names.KerName.repr kn in
+  {prefix = qualified_object_prefix_of_mp mp; basename = Names.Label.to_id l}
 
 let full_path_of_kn kn =
   let mp, l = Names.KerName.repr kn in
-  Libnames.make_path (Lib.dp_of_mp mp) (Names.Label.to_id l)
+  Libnames.make_path (dp_of_mp mp) (Names.Label.to_id l)
 
 let full_path_of_constant c = full_path_of_kn (Names.Constant.user c)
 
+let qualified_name_of_constant c = qualified_name_of_kn (Names.Constant.user c)
+
+let qualified_name_of_full_path fp =
+  let (dp, id) = Libnames.repr_path fp in
+  {prefix = qualified_object_prefix_of_dp dp; basename = id}
 
 (* Get current proof context *)
 let context_of_st m = match m with
@@ -49,7 +82,7 @@ let context_of_stm ~doc sid =
 let inspect_globals ~env () =
   let global_consts = List.to_seq @@
       Environ.fold_constants (fun name _ l -> name :: l) env [] in
-  Seq.map full_path_of_constant global_consts
+  Seq.map qualified_name_of_constant global_consts
 
 
 let libobj_is_leaf obj =
@@ -83,13 +116,14 @@ let inspect_library ~env () =
   Seq.flat_map (fun ((obj_path, _), obj) ->
     if libobj_is_leaf obj then find_definitions env obj_path
     else Seq.empty)
-    (List.to_seq ls)
+    (List.to_seq ls) |> Seq.map qualified_name_of_full_path
 
 (* Get local names in proof context *)
 let inspect_locals ~env ?(dir_path=Names.DirPath.empty) () =
   let named_ctx = Environ.named_context env in
   List.to_seq (Context.Named.to_vars named_ctx |> Names.Id.Set.elements) |>
     Seq.map (Libnames.make_path dir_path)
+    |> Seq.map qualified_name_of_full_path
 
 
 
@@ -106,7 +140,7 @@ let filter_by (q : search_query) =
   | All | CurrentFile | Locals -> (fun _ -> true)
   | ModulePrefix prefix -> 
     let dp = Libnames.dirpath_of_string prefix in (fun nm -> is_within nm dp)
-  | Keyword s -> (fun nm -> string_contains (Libnames.string_of_path nm) s)
+  | Keyword s -> (fun nm -> string_contains (string_of_qualified_name nm) s)
 
 let inspect ~doc sid q =
     let _, env = context_of_stm ~doc sid in

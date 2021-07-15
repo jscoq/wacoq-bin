@@ -13,7 +13,7 @@ PACKAGE_VERSION = ${shell node -p 'require("./package.json").version'}
 OPAM_ENV = eval `opam env --set-switch --switch $(BUILD_CONTEXT)`
 DUNE = $(OPAM_ENV) && dune
 
-.PHONY: default bootstrap setup deps wacoq clean distclean _*
+.PHONY: default bootstrap setup deps wacoq wacoq-only symb install clean distclean _*
 
 default: wacoq
 
@@ -34,6 +34,9 @@ _wrapup:
 
 wacoq-only:
 	$(DUNE) build @wacoq
+
+symb:
+	node dist/cli.js inspect
 
 install:
 	# This unfortunately deletes some wacoq build artifacts
@@ -73,7 +76,7 @@ $(COQ_SRC):
 
 coq: $(COQ_SRC)
 	$(OPAM_ENV) && \
-	cd $(COQ_SRC) && ./configure -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no
+	cd $(COQ_SRC) && ./configure -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no -no-custom
 
 
 .PHONY: coq-serapi

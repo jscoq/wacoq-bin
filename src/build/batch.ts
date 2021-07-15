@@ -211,10 +211,11 @@ class AnalyzeTask {
         for (let r of sr) {
             for (let entry of r[2]) {
                 var label = entry.basename[1],
-                    prefix = entry.dirpath[1].map(x => x[1]).reverse(),
-                    mp = prefix.join('.');
+                    dp = entry.prefix.dp[1].map(x => x[1]).reverse(),
+                    prefix = dp.concat(entry.prefix.mod_ids.map(id => id[1])),
+                    mod = dp.join('.');
                 for (let [pkg, mns] of Object.entries(pkgs))
-                    if (mns.includes(mp)) symb[pkg].push({prefix, label});
+                    if (mns.includes(mod)) symb[pkg].push({prefix, label});
             }
         }
 
