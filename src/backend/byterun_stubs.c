@@ -73,7 +73,6 @@ CAMLprim value coq_offset_tcode(value code, value offset)              STUB
 CAMLprim value coq_int_tcode(value pc, value offset)                   STUB
 CAMLprim value coq_tcode_array(value tcodes)                           STUB
 
-/* wacoq */
-extern void wacoq_emit(const char *msg);  /* implemented in `core.ts` */
-
-CAMLprim value interrupt_pending(value tt) { return Val_false; }
+/* wacoq hooks - implemented in `core.ts` */
+extern void wacoq_emit(const char *msg);
+extern value interrupt_pending(value tt);

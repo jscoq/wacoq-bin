@@ -10,6 +10,16 @@ interface OCamlCAPI {
     caml_callback(closure: i32, arg: i32): i32;
 }
 
+namespace OCamlCAPI {
+    export function Val_int(v: number): i32 { return (v << 2) | 1; }
+    export function Val_bool(b: boolean): i32 { return Val_int(+b); }
+    export function Int_val(v: i32) { return v >> 1; }
+    export function Bool_val(v: i32) { return !!Int_val(v); }
+    export const Val_unit = Val_int(0);
+    export const Val_false = Val_int(0);
+    export const Val_true = Val_int(1);
+}
+
 type i32 = number;
 
 

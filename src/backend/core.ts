@@ -1,13 +1,15 @@
 import { EventEmitter } from 'events';
 import { unzipSync } from 'fflate';
 
-import { OCamlExecutable } from './ocaml_exec';
+import { OCamlExecutable, OCamlCAPI } from './ocaml_exec';
+import { WorkerInterrupts } from './interrupt';
 
 
 
 class IcoqPod extends EventEmitter {
 
     core: OCamlExecutable
+    intr: WorkerInterrupts
 
     binDir: string
     io: IO
@@ -24,6 +26,7 @@ class IcoqPod extends EventEmitter {
         this.core.on('stream:out', ev => console.log(utf8.decode(ev.data)));
 
         this.io = new IO;
+        this.intr = new WorkerInterrupts();
     }
 
     get fs() { return this.core.fs; }
@@ -101,9 +104,10 @@ class IcoqPod extends EventEmitter {
 
     command(cmd: any[]) {
         switch (cmd[0]) {
-        case 'LoadPkg':   this.loadPackages(cmd[1]);               return;
-        case 'Put':       this.putFile(cmd[1], cmd[2]);            return;
-        case 'Get':       this.getFile(cmd[1]);                    return;
+        case 'LoadPkg':        this.loadPackages(cmd[1]);          return;
+        case 'Put':            this.putFile(cmd[1], cmd[2]);       return;
+        case 'Get':            this.getFile(cmd[1]);               return;
+        case 'InterruptSetup': this.intr.setup(cmd[1]);            return;
         }
 
         const wacoq_post = this.core.callbacks && this.core.callbacks.wacoq_post;
@@ -123,6 +127,10 @@ class IcoqPod extends EventEmitter {
         this.answer(JSON.parse(<any>cstr));
     }
 
+    _interrupt_pending() {
+        return OCamlCAPI.Val_bool(this.intr.pending());
+    }
+
     /**
      * (internal) Initializes the dllbyterun_stub shared library.
      */
@@ -131,7 +139,8 @@ class IcoqPod extends EventEmitter {
             'dllbyterun_stubs.so', `${this.binDir}/coq/dllbyterun_stubs.wasm`,
             {
                 js: {
-                    wacoq_emit: (s:number) => this._answer(s)
+                    wacoq_emit: (s:number) => this._answer(s),
+                    interrupt_pending: (_:number) => this._interrupt_pending()
                 }
             }
         );
