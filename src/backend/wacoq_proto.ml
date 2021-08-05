@@ -8,6 +8,7 @@ module Loc      = Serlib.Ser_loc
 module Pp       = Serlib.Ser_pp
 
 module Libnames = Serlib.Ser_libnames
+module Goptions = Serlib.Ser_goptions
 
 module Ser_nametab = struct
   include Nametab
@@ -69,6 +70,9 @@ type doc_config =
   [@@deriving yojson]
 and top_mode =
   [%import: Icoq_init.top_mode]
+  [@@deriving yojson]
+and coq_option =
+  [%import: Icoq_init.coq_option]
   [@@deriving yojson]
 
 type in_mode = Proof | General

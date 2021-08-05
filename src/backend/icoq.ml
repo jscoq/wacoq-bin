@@ -59,6 +59,7 @@ let start config vo_load_path ml_load_path =
                    injections = require_libs;
                    vo_load_path; ml_load_path;
                    stm_options = Stm.AsyncOpts.default_opts } in
+  (* @todo handle `config.debug.stm` and `config.coq_options` as well *)
   Stm.new_doc ndoc
 
 

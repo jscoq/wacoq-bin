@@ -15,5 +15,7 @@ type doc_config =
   ; lib_init: string list        [@default ["Coq.Init.Prelude"]]
   ; lib_path: string list        [@default ["/lib"]]
   ; mode: top_mode               [@default Interactive]
+  ; coq_options: coq_option list [@default []]
   }
 and top_mode = Interactive | Vo
+and coq_option = (string list * Goptions.option_value)
