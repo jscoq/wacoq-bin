@@ -1,3 +1,5 @@
+import path from 'path';
+import arreq from 'array-equal';
 import { EventEmitter } from 'events';
 import { FSInterface } from './fsif';
 import { SearchPathElement, CoqProject, InMemoryVolume, JsCoqCompat } from './project';
@@ -6,7 +8,8 @@ import { SearchPathElement, CoqProject, InMemoryVolume, JsCoqCompat } from './pr
 
 abstract class Batch {
 
-    volume: FSInterface = null;
+    volume: FSInterface = null
+    loadpath: LoadPath = []
 
     abstract command(cmd: any[]): void;
     abstract expect(yes: (msg: any[]) => boolean,
@@ -26,6 +29,28 @@ abstract class Batch {
     isError(msg: any[]) {
         return ['JsonExn', 'CoqExn'].includes(msg[0]);
     }    
+
+    async loadPackages(pkgs: Set<string>): Promise<LoadPath> {
+        if (pkgs.size > 0)
+            await this.do(
+                ['LoadPkg', [...pkgs].map(pkg => `+${pkg}`)],
+                msg => msg[0] == 'LoadedPkg'
+            );
+        return undefined;
+    }
+
+    async init() {
+        await this.do(['Init', {}]);
+    }
+
+    docOpts(mod: SearchPathElement, outfn: string) {
+        return { top_name: outfn, mode: ['Vo'], 
+                 lib_init: PRELUDE, lib_path: this.loadpath };
+    }
+
+    async install(mod: SearchPathElement, volume: FSInterface, root: string, outfn: string, compiledfn: string, content?: Uint8Array) {
+        console.warn('Batch.install not implemented; mod =', mod);
+    }
 }
 
 
@@ -39,6 +64,7 @@ class BatchWorker extends Batch {
     }
 
     command(cmd: any[]) {
+        console.log('batch', cmd);
         this.worker.postMessage(cmd);
     }
 
@@ -75,7 +101,7 @@ class CompileTask extends EventEmitter {
         super();
         this.batch = batch;
         this.inproj = inproj;
-        this.opts = opts;
+        this.opts = {...CompileTask.DEFAULT_OPTIONS, ...opts};
 
         this.volume = batch.volume || new InMemoryVolume();
     }
@@ -86,45 +112,39 @@ class CompileTask extends EventEmitter {
         var coqdep = this.inproj.computeDeps(),
             plan = coqdep.buildOrder();
 
-        await this.loadPackages(coqdep.extern);
+        await this.batch.loadPackages(coqdep.extern);
+        await this.batch.init();
 
         for (let mod of plan) {
             if (this._stop) break;
-            if (mod.physical.endsWith('.v'))
+            if (mod.physical.endsWith('.v') && this.alreadyDone(coqdep.depsOf(mod)))
                 await this.compile(mod);
         }
     
         return this.output(outname);
     }
 
-    async loadPackages(pkgs: Set<string>) {
-        if (pkgs.size > 0)
-            await this.batch.do(
-                ['LoadPkg', [...pkgs].map(pkg => `+${pkg}`)],
-                msg => msg[0] == 'LoadedPkg'
-            );
+    alreadyDone(modules: SearchPathElement[]) {
+        return modules.every(mod => !mod.volume ||
+            this.outfiles.some(cmod => arreq(cmod.logical, mod.logical)));
     }
 
     async compile(mod: SearchPathElement, opts=this.opts) {
         var {volume, logical, physical} = mod,
-            infn = `/lib/${logical.join('/')}.v`, outfn = `${infn}o`;
+            root = opts.buildDir || '/lib',
+            infn = `${path.join(root, ...logical)}.v`, outfn = `${infn}o`;
         this.infiles.push(mod);
 
         this.emit('progress', [{filename: physical, status: 'compiling'}]);
 
         try {
-            await this.batch.do(
-                ['Init', {top_name: logical.join('.')}],
-                ['Put', infn, volume.fs.readFileSync(physical)],
-                /** @todo need NewDoc too now */
-                ['Load', infn],            msg => msg[0] == 'Loaded',
+            let [, [, outfn_, vo]] = await this.batch.do(
+                ['Put',     infn, volume.fs.readFileSync(physical)],
+                ['NewDoc',  this.batch.docOpts(mod, outfn)],
+                ['Load',    infn],         msg => msg[0] == 'Loaded',
                 ['Compile', outfn],        msg => msg[0] == 'Compiled');
 
-            if (!this.batch.volume) {
-                let [[, , vo]] = await this.batch.do(
-                    ['Get', outfn],        msg => msg[0] == 'Got');            
-                this.volume.fs.writeFileSync(outfn, vo);
-            }
+            await this.batch.install(mod, this.volume, root, outfn, outfn_, vo);
 
             this.outfiles.push({volume: this.volume, 
                                 logical, physical: outfn});
@@ -132,9 +152,9 @@ class CompileTask extends EventEmitter {
             this.emit('progress', [{filename: physical, status: 'compiled'}]);
         }
         catch (e) {
-            this.emit('report', e);
+            this.emit('report', e, mod);
             this.emit('progress', [{filename: physical, status: 'error'}]);
-            throw e;
+            if (!opts.keepGoing) throw e;
         }
     }
 
@@ -143,8 +163,13 @@ class CompileTask extends EventEmitter {
     output(name?: string) {
         this.outproj = new CoqProject(name || this.inproj.name || 'out',
                                       this.volume);
-        for (let mod of this.outfiles) mod.pkg = this.outproj.name;
-        this.outproj.searchPath.addRecursive({physical: '/lib', logical: []});
+        for (let mod of this.outfiles) {
+            mod.pkg = this.outproj.name;
+            this.outproj.searchPath.add({
+                physical: path.dirname(mod.physical), 
+                logical: mod.logical.slice(0, -1)
+            });
+        }
         this.outproj.setModules(this._files());
         return this.outproj;
     }
@@ -159,12 +184,21 @@ class CompileTask extends EventEmitter {
         return [].concat(this.infiles, this.outfiles);
     }
 
+    static DEFAULT_OPTIONS : CompileTaskOptions = {
+        buildDir: "/lib", resume: false, keepGoing: true, jscoq: false
+    }
 }
 
 type CompileTaskOptions = {
-    continue?: boolean
-    jscoq?: boolean
+    buildDir?: string
+    resume?: boolean     // pick up from previous build
+    keepGoing?: boolean  // carry on in face of compile errors
+    jscoq?: boolean      // jsCoq package format (compatibility mode)
 };
+
+type LoadPath = [string[], string[]][];
+
+const PRELUDE = ["Coq.Init.Prelude"];
 
 
 class AnalyzeTask {
