@@ -26,7 +26,7 @@
     "child-process-promise": "^2.2.1",
     "commander": "^5.1.0",
     "fflate": "^0.3.6",
-    "fflate-unzip": "^0.3.6-0",
+    "fflate-unzip": "^0.7.0",
     "find": "^0.3.0",
     "find-up": "^5.0.0",
     "glob": "^7.1.7",
