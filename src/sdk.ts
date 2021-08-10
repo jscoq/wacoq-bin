@@ -15,44 +15,41 @@ async function sdk(basedir = SDK) {
     mkdirp.sync(basedir);
 
     // Locate `coq-pkgs`
-    var nm = findNM(), from;
+    var nm = findNM(), coqpkgsDir: string;
     for (let sp of ['jscoq/coq-pkgs', 'wacoq-bin/bin/coq']) {
         var fp = path.join(nm, sp);
-        if (fs.existsSync(fp)) from = fp;
+        if (fs.existsSync(fp)) coqpkgsDir = fp;
     }
-    if (!from) throw {err: "Package bundles (*.coq-pkg) not found"};
+    if (!coqpkgsDir) throw {err: "Package bundles (*.coq-pkg) not found"};
 
     // - unzip everything in `coqlib`
-    var coqlib = path.join(basedir, 'coqlib');
-    if (isNewer(from, coqlib)) {
-        for (let fn of glob.sync('*.coq-pkg', {cwd: from})) {
-            var fp = path.join(from, fn);
-            await unzip(fp, coqlib);
+    var coqlibDir = path.join(basedir, 'coqlib');
+    mkdirp.sync(coqlibDir);
+    await cas(path.join(coqlibDir, '_coq-pkgs'), dirstamp(coqpkgsDir), async () => {
+        for (let fn of glob.sync('*.coq-pkg', {cwd: coqpkgsDir})) {
+            var fp = path.join(coqpkgsDir, fn);
+            await unzip(fp, coqlibDir);
         }
 
         // - link `theories` and `plugins` to be consistent with Coq dist structure
         for (let link of ['theories', 'plugins'])
-            ln_sf('Coq', path.join(coqlib, link));
-
-        touch(coqlib);
-    }
+            ln_sf('Coq', path.join(coqlibDir, link));
+    });
 
     // Locate native Coq
     var coqlibNative = await findCoq();
 
     // - link libs in `ml`
     var mlDir = path.join(basedir, 'ml');
-    if (isNewer(coqlibNative, mlDir)) {
-        mkdirp.sync(mlDir);
+    mkdirp.sync(mlDir);
+    await cas(path.join(mlDir, '_coqlib-native'), dirstamp(coqlibNative), () => {
         for (let fn of glob.sync('**/*.cmxs', {cwd: coqlibNative}))
             ln_sf(
                 path.join(coqlibNative, fn),
                 path.join(mlDir, path.basename(fn)));
+    });
 
-        touch(coqlib);
-    }
-
-    return {coqlib, include: mlDir};
+    return {coqlib: coqlibDir, include: mlDir};
 }
 
 async function runCoqC(cfg: {coqlib: string, include: string},
@@ -82,21 +79,36 @@ async function findCoq() {
 
 /*- some shutil -*/
 
-function isNewer(fn1: string, fn2: string) {
-    try { var s1 = fs.statSync(fn1).mtime; } catch { return false; }
-    try { var s2 = fs.statSync(fn2).mtime; } catch { return true; }
-    return s1 > s2;
+function cat(fn: string) {
+    try {
+        return fs.readFileSync(fn, 'utf-8');
+    }
+    catch { return undefined; }
+}
+
+/**
+ * If `fn` contains `expectedValue`, do nothing;
+ * Otherwise run `whenNeq` and update `fn`.
+ * @returns `true` iff `fn` already contained `expectedValue`.
+ */
+async function cas(fn: string, expectedValue: string, whenNeq: () => void | Promise<void>) {
+    if (cat(fn) === expectedValue) return true;
+    else {
+        await whenNeq();
+        fs.writeFileSync(fn, expectedValue);
+        return false;
+    }
+}
+
+function dirstamp(fn: string) {
+    try { var s = fs.statSync(fn).mtime.toISOString(); } catch { s = '??'; }
+    return `${fn} @ ${s}`;
 }
 
 function ln_sf(target: string, source: string) {
     try { fs.unlinkSync(source); }
     catch { }
     fs.symlinkSync(target, source);
-}
-
-function touch(fn: string) {
-    var tm = Date.now();
-    fs.utimesSync(fn, tm, tm);
 }
 
 /*- main entry point -*/
