@@ -57,7 +57,7 @@ async function runCoqC(cfg: {coqlib: string, include: string},
     var {coqlib, include} = cfg,
         args = ['-coqlib', coqlib, '-include', include, ...args];
     try {
-        await chld.spawn('coqc', args, {stdio: 'inherit'});
+        return await chld.spawn('coqc', args, {stdio: 'inherit'});
     }
     catch { throw {err: 'coqc error'}; }
 }
@@ -116,8 +116,8 @@ function ln_sf(target: string, source: string) {
 async function main(args: string[]) {
     try {
         var cfg = await sdk();
-        await runCoqC(cfg, args);
-        return 0;
+        var ret = await runCoqC(cfg, args);
+        return ret.code;
     }
     catch (e) {
         if (e.err) console.log('oops: ' + e.err);
