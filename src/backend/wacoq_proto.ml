@@ -64,15 +64,15 @@ type startup_config =
 and debug_config =
   [%import: Icoq_init.debug_config]
   [@@deriving yojson]
+and coq_option =
+  [%import: Icoq_init.coq_option]
+  [@@deriving yojson]
 
 type doc_config =
   [%import: Icoq_init.doc_config]
   [@@deriving yojson]
 and top_mode =
   [%import: Icoq_init.top_mode]
-  [@@deriving yojson]
-and coq_option =
-  [%import: Icoq_init.coq_option]
   [@@deriving yojson]
 
 type in_mode = Proof | General
