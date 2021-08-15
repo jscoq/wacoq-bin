@@ -23,7 +23,7 @@
  (deps
   cli.js
   src/build/metadata/coq-pkgs.json
-  (package coq))
+  (package coq-stdlib))
  (action
   (run node ./cli.js --nostdlib src/build/metadata/coq-pkgs.json)))
 

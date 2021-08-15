@@ -18,12 +18,13 @@
         "coq-base": {
             "theories": {
                 "prefix": "Coq",
-                "dirpaths": ["Logic", "Program", "Classes", "Structures",
-                             "Relations", "Setoids", "extraction", "funind"]
+                "dirpaths": ["Logic", "Program", "Classes", "Compat", "Structures",
+                             "Relations", "Setoids", 
+                             "extraction", "funind", "derive", "ssrsearch", "rtauto"]
             },
             "plugins": {
                 "prefix": "Coq",
-                "dirpaths": ["extraction", "funind"]
+                "dirpaths": ["extraction", "funind", "derive", "ssrsearch", "rtauto"]
             }
         },
         "coq-collections": {
@@ -37,22 +38,22 @@
             "theories": {
                 "prefix": "Coq",
                 "dirpaths": ["Arith", "NArith", "PArith", "ZArith", "QArith",
-                             "Numbers", "Wellfounded", "setoid_ring", "omega"]
+                             "Numbers", "Wellfounded", "setoid_ring", "omega",
+                             "micromega"]
             },
             "plugins": {
                 "prefix": "Coq",
-                "dirpaths": ["ring", "omega"]
+                "dirpaths": ["ring", "micromega"]
             }
         },
         "coq-reals": {
             "theories": {
                 "prefix": "Coq",
-                "dirpaths": ["Reals", "Floats",
-                             "micromega", "nsatz"]
+                "dirpaths": ["Reals", "Floats", "nsatz"]
             },
             "plugins": {
                 "prefix": "Coq",
-                "dirpaths": ["micromega", "nsatz"]
+                "dirpaths": ["nsatz"]
             }
         }
     }

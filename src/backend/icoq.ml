@@ -31,8 +31,8 @@ let core_config : startup_config option ref = ref None
 let init config =
   Dynlink.allow_unsafe_modules true; (* this is needed for camlp4 and some others *)
 
-  if (config.debug.coq) then
-    Coqinit.set_debug ();
+  (* if (config.debug.coq) then
+    Coqinit.set_debug (); *)  (* @todo *)
 
   Lib.init ();
 
@@ -50,14 +50,14 @@ let start config vo_load_path ml_load_path =
   (* Create an initial state of the STM *)
   let doc_type = match config.mode with
     | Interactive -> let dp = Libnames.dirpath_of_string config.top_name in 
-                     Stm.Interactive (Stm.TopLogical dp) 
+                     Stm.Interactive (Coqargs.TopLogical dp) 
     | Vo ->          Stm.VoDoc config.top_name
   in
   let require_libs = List.map (fun lib -> 
-    Stm.RequireInjection(lib, None, Some false)) config.lib_init in
+    Coqargs.RequireInjection(lib, None, Some false)) config.lib_init in
   let ndoc = Stm.{ doc_type;
                    injections = require_libs;
-                   vo_load_path; ml_load_path;
+                   (*vo_load_path; ml_load_path; *)
                    stm_options = Stm.AsyncOpts.default_opts } in
   (* @todo handle `config.debug.stm` and `config.coq_options` as well *)
   Stm.new_doc ndoc
@@ -82,7 +82,7 @@ module Interpreter = struct
   let _fresh_cnt = ref 1
 
   let version =
-    Coq_config.version, Coq_config.date, Coq_config.compile_date, Coq_config.caml_version, Coq_config.vo_version
+    Coq_config.version, Wacoq_version.date, Coq_config.caml_version, Coq_config.vo_version
 
   let init = init
 
@@ -230,11 +230,11 @@ end
 
 
 let info_string () =
-  let coqv, coqd, ccd, ccv, cmag = Interpreter.version              in
+  let coqv, build_date, ccv, cmag = Interpreter.version             in
   let wacoqv = Wacoq_version.version                                in
   let info1 = Printf.sprintf
-              "waCoq %s, Coq %s/%4d (%s),\n  compiled on %s\n"
-              wacoqv coqv (Int32.to_int cmag) coqd ccd              in
+              "waCoq %s, Coq %s/%4d,\n  compiled on %s\n"
+              wacoqv coqv (Int32.to_int cmag) build_date            in
   let info2 = Printf.sprintf
               "OCaml %s (wasi-sdk-12)\n" (* @oops *) ccv            in
   info1 ^ info2
