@@ -63,20 +63,24 @@ dist-npm:
 
 COQ_SRC = vendor/coq
 
-COQ_BRANCH = V8.13.2
+COQ_BRANCH = V8.14.0
 COQ_REPOS=https://github.com/coq/coq.git
 
-COQ_PATCHES = timeout temporary-fix-for-coq-bug-14211 $(COQ_PATCHES|$(WORD_SIZE))
+# @todo timeout
+COQ_PATCHES = extern $(COQ_PATCHES|$(WORD_SIZE))
 
 COQ_PATCHES|64 = coerce-32bit
+
+coq_configure = ./tools/configure/configure.exe
 
 $(COQ_SRC):
 	git clone -c advice.detachedHead=false --depth=1 -b $(COQ_BRANCH) $(COQ_REPOS) $@
 	cd $@ && git apply ${foreach p,$(COQ_PATCHES),$(current_dir)/etc/patches/$p.patch}
 
 coq: $(COQ_SRC)
-	$(OPAM_ENV) && \
-	cd $(COQ_SRC) && ./configure -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no
+	cd $(COQ_SRC) && \
+	    dune exec --context=$(BUILD_CONTEXT) $(coq_configure) \
+	        -- -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no
 
 
 .PHONY: coq-serapi

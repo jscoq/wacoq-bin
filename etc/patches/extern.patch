@@ -1,0 +1,28 @@
+diff --git a/kernel/byterun/dune b/kernel/byterun/dune
+index 4d2000b..6a7db30 100644
+--- a/kernel/byterun/dune
++++ b/kernel/byterun/dune
+@@ -4,7 +4,7 @@
+  (public_name coq-core.vm)
+  (foreign_stubs
+   (language c)
+-  (names coq_fix_code coq_float64 coq_memory coq_values coq_interp)
++  (names coq_fix_code coq_float64 coq_memory coq_values coq_interp wacoq_extern)
+   (flags (:include %{project_root}/config/dune.c_flags))))
+ 
+ (rule
+diff --git a/kernel/byterun/wacoq_extern.c b/kernel/byterun/wacoq_extern.c
+new file mode 100644
+index 0000000..cc1f55a
+--- /dev/null
++++ b/kernel/byterun/wacoq_extern.c
+@@ -0,0 +1,9 @@
++#include <caml/mlvalues.h>
++
++
++// Implemented in core.ts
++value interrupt_pending() { return Val_false; }
++
++// For subproc mode
++value wacoq_emit(value str) { printf("%s\n", (const char *)str); fflush(stdout); return Val_unit; }
++
