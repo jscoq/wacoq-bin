@@ -41,8 +41,8 @@ symb:
 install:
 	# This unfortunately deletes some wacoq build artifacts
 	# (re-run `make wacoq` to restore)
-	$(DUNE) build -p coq
-	$(DUNE) install coq
+	$(DUNE) build -p coq-core
+	$(DUNE) install coq-core
 
 dist-npm:
 	rm -rf package

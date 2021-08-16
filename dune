@@ -8,14 +8,15 @@
 (alias
  (name coq)
  (deps
-  (package coq)))
+  (package coq-core)
+  (package coq-stdlib)))
 
 (alias
  (name wacoq)
  (deps
   src/backend/icoq.bc
   src/backend/icoq.exe
-  src/backend/dllbyterun_stubs.wasm
+  src/backend/dllcoqrun_stubs.wasm
   cli.js))
 
 (rule

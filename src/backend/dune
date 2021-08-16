@@ -16,9 +16,9 @@
       \n let date = \"${new Date().toUTCString()}\"`"))))
 
 (rule
- (targets dllbyterun_stubs.wasm)
+ (target dllcoqrun_stubs.wasm)
  (deps byterun_stubs.c)
  (action
   (bash "/opt/wasi-sdk/bin/clang -target wasm32-unknown-emscripten -D__wasi__ -fPIC \
-	  byterun_stubs.c -o %{targets} -nostdlib -Wl,--shared -Wl,--export-all \
+	  byterun_stubs.c -o %{target} -nostdlib -Wl,--shared -Wl,--export-all \
       -I%{ocaml-config:standard_library}")))
