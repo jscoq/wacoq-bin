@@ -17,7 +17,7 @@ let native_load_path coqlib =
     (fun subdir -> make_coqpath (coqlib ^ subdir) ["Coq"])
     ["/theories"; "/plugins"]
 
-let init_load_path coqlib_opt load_path =
+let default_load_path coqlib_opt load_path =
   (match coqlib_opt with
    | Some coqlib -> native_load_path coqlib
    | _ -> [])
@@ -46,7 +46,7 @@ let init config =
   core_config := Some config
 
 
-let start config vo_load_path ml_load_path =
+let start config =
   (* Create an initial state of the STM *)
   let doc_type = match config.mode with
     | Interactive -> let dp = Libnames.dirpath_of_string config.top_name in 
@@ -57,7 +57,6 @@ let start config vo_load_path ml_load_path =
     Coqargs.RequireInjection(lib, None, Some false)) config.lib_init in
   let ndoc = Stm.{ doc_type;
                    injections = require_libs;
-                   (*vo_load_path; ml_load_path; *)
                    stm_options = Stm.AsyncOpts.default_opts } in
   (* @todo handle `config.debug.stm` and `config.coq_options` as well *)
   Stm.new_doc ndoc
@@ -86,11 +85,15 @@ module Interpreter = struct
 
   let init = init
 
+  let set_load_path () =
+    List.iter Loadpath.add_vo_path !load_path
+
   let new_doc config =
     let core = Option.get !core_config in
-    load_path := init_load_path core.coqlib config.lib_path;
+    load_path := default_load_path core.coqlib config.lib_path;
+    set_load_path ();
 
-    let doc, initial = start config !load_path [] in
+    let doc, initial = start config in
     state := Some (doc, [initial]);
     initial
 
@@ -164,8 +167,7 @@ module Interpreter = struct
     let ppx env sigma x = Printer.pr_ltype_env env sigma x in
     Serapi.Serapi_goals.get_goals_gen ppx ~doc sid
 
-  let refresh_load_path () =
-    List.iter Loadpath.add_vo_path !load_path
+  let refresh_load_path = set_load_path
 
   let requires ast =
     match ast.CAst.v with
