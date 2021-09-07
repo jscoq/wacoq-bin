@@ -10,7 +10,7 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "webpack",
+    "build": "rm -rf dist && webpack --mode production",
     "dev": "webpack -w",
     "dist": "make dist-npm",
     "postinstall": "node ./etc/postinstall.js"
@@ -33,7 +33,7 @@
     "mkdirp": "^1.0.4",
     "neatjson": "^0.8.3",
     "ocaml-wasm": "^4.12.0-0",
-    "wasi-kernel": "^0.1.4"
+    "wasi-kernel": "0.1.5"
   },
   "devDependencies": {
     "@types/child-process-promise": "^2.2.1",
@@ -43,7 +43,7 @@
     "@types/mkdirp": "^1.0.1",
     "@types/node": "^14.0.27",
     "assert": "^2.0.0",
-    "buffer": "^5.7.1",
+    "buffer": "^4.9.2",
     "events": "^3.3.0",
     "jquery": "^3.6.0",
     "jszip": "^3.6.0",

@@ -39,10 +39,8 @@ symb:
 	node dist/cli.js inspect
 
 install:
-	# This unfortunately deletes some wacoq build artifacts
-	# (re-run `make wacoq` to restore)
-	$(DUNE) build -p coq-core
-	$(DUNE) install coq-core
+	$(DUNE) build ${foreach p, coq-core coq-stdlib, vendor/coq/$p.install}
+	$(DUNE) install coq-core coq-stdlib
 
 dist-npm:
 	rm -rf package

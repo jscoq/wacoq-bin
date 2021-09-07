@@ -14,8 +14,8 @@ const lowstats = {
       rules: [ {test: /\.tsx?$/, use: {
         loader: 'ts-loader', 
         options: {
-          transpileOnly: true,  /* sorry; have to fix `wasi-kernel` probably */
-          allowTsInNodeModules: true}
+          transpileOnly: true,  /* makes it a bit faster, but suppresses type errors (use an IDE or smt) */
+          allowTsInNodeModules: true  /* sorry, need to compile `wasi-kernel` sources as well */ }
         }
       } ],
     },
@@ -30,10 +30,10 @@ const lowstats = {
       tty: false, url: false, worker_threads: false,
       fs: false, crypto: false
     },
-    globals: {
-      process: 'process/browser',
-      Buffer: 'buffer'
-    }
+    plugins: [
+        new webpack.DefinePlugin({process: {browser: true, env: {}, cwd: () => "/"}}),
+        new webpack.ProvidePlugin({Buffer: ['buffer', 'Buffer']})
+    ]
   },
   dev = (argv) => ({
     mode: 'development',
@@ -45,6 +45,7 @@ const lowstats = {
   out = (env, filename) => ({
     output: {
       filename: filename,
+      workerChunkLoading: false,  /* does this have _any_ effect?? */
       path: path.join(__dirname, env.outDir || 'dist')
     }
   })
@@ -62,8 +63,7 @@ module.exports = (env, argv) => [
   ...out(env, 'cli.js'),
   plugins: [
     new webpack.BannerPlugin({banner: '#!/usr/bin/env node', raw: true}),
-    new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1}),
-    //new BundleAnalyzerPlugin()
+    new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1})
   ],
   node: false
 },
@@ -80,6 +80,7 @@ module.exports = (env, argv) => [
 },
 {
   name: 'worker',
+  target: 'webworker',
   entry: './src/worker.ts',
   ...dev(argv),
   ...lowstats,
@@ -89,7 +90,9 @@ module.exports = (env, argv) => [
     fallback: shims.modules
   },
   plugins: [
-    new webpack.ProvidePlugin(shims.globals)    
+    ...shims.plugins,
+    //new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1}), /* breaks production build! also still creates a useless chunk for wasi-kernel's worker.ts */
+    //new BundleAnalyzerPlugin()   /* uncomment to get size breakdown */
   ],
   ...out(env, 'worker.js')
 },
@@ -107,9 +110,7 @@ module.exports = (env, argv) => [
     ...typescript.resolve,
     fallback: shims.modules
   },
-  plugins: [
-    new webpack.ProvidePlugin(shims.globals)    
-  ],
+  plugins: shims.plugins,
   ...out(env, 'startup.js')
 }
 ];
