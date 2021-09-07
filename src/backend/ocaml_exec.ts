@@ -1,4 +1,5 @@
 import { ExecCore, ExecCoreOptions } from 'wasi-kernel';
+import type { DynamicLibrary } from 'wasi-kernel/lib/kernel/bits/dyld';
 
 
 
@@ -37,7 +38,7 @@ class OCamlExecutable extends ExecCore {
         var bin = this.opts.binDir || '../bin';
 
         for (let p of this.preloads())
-            await this.proc.dyld.preload(p.name, p.uri);
+            await this.proc.dyld.preload(p.name, p.uri, p.reloc);
 
         await this.start(`${bin}/ocaml/ocamlrun.wasm`, ['ocamlrun', bytecodeFile, ...args]);
 
@@ -48,8 +49,10 @@ class OCamlExecutable extends ExecCore {
     preloads() {
         var bin = this.opts.binDir || '../bin';
         return ['dllcamlstr', 'dllunix', 'dllthreads'].map(b => ({
-            name: `${b}.so`, uri: `${bin}/ocaml/${b}.wasm`
-        })).concat([
+            name: `${b}.so`, uri: `${bin}/ocaml/${b}.wasm`, reloc: STDLIB_STUBS[b]
+        } as {name: string, uri: string, reloc?: any}))
+        .concat([
+            {name: 'dllunix.so', uri: `${bin}/ocaml/dllunix.wasm`},
             {name: 'dllnums.so', uri: `${bin}/num/dllnums.wasm`},
             {name: 'dllzarith.so', uri: `${bin}/zarith/dllzarith.wasm`}
         ]);
@@ -80,10 +83,33 @@ class OCamlExecutable extends ExecCore {
 }
 
 
-
 type OCamlExecutableOptions = ExecCoreOptions & {
     binDir?: string
 };
+
+
+/**
+ * These symbols from `dllunix` are present in `wasi-libc`, but
+ * unfortunately not linked into `ocamlrun`, and `wasi-libc` cannot
+ * be linked to dynamic libraries.
+ * So these symbols are replaced with stubs to silence some warnings;
+ * hopefully that won't be too bad for Coq.
+ */
+const UNIX_STUBBED = ['fstat', 'fsync', 'strchr', 'fcntl', 'ftruncate',
+    'getgrnam', 'gmtime', 'localtime', 'mktime', 'lockf', 'pwrite',
+    'sysconf', 'mmap', 'munmap', 'putenv', 'rewinddir', 'select',
+    'nanosleep', 'tcgetattr', 'tcsetattr', 'time', 'truncate'];
+
+const STDLIB_STUBS: {[lib: string]: DynamicLibrary.Relocations} = {
+    'dllunix': {
+        js: mapAllTo(UNIX_STUBBED, () => 0)
+    }
+}
+
+function mapAllTo<T>(keys: string[], value: T) {
+    return Object.fromEntries(keys.map(nm => [nm, value]));
+}
+
 
 
 export { OCamlExecutable, OCamlCAPI }
