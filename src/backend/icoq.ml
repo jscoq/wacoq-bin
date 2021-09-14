@@ -28,11 +28,11 @@ let default_warning_flags = "-notation-overridden"  (* for ssreflect :/ *)
 
 let core_config : startup_config option ref = ref None
 
-let init config =
+let init config preload =
   Dynlink.allow_unsafe_modules true; (* this is needed for camlp4 and some others *)
 
-  (* if (config.debug.coq) then
-    Coqinit.set_debug (); *)  (* @todo *)
+  if config.debug.coq then  CDebug.set_debug_all true;
+  if config.debug.stm then  CDebug.set_flags "misc";
 
   Lib.init ();
 
@@ -42,11 +42,14 @@ let init config =
   Flags.set_native_compiler false;  (* need both? *)
   CWarnings.set_flags default_warning_flags;
 
+  preload ();  (* needed to set up load path before `init_core` *)
+
   Stm.init_core ();
   core_config := Some config
 
 
 let start config =
+  Format.eprintf "top_name %s\n%!" config.top_name;
   (* Create an initial state of the STM *)
   let doc_type = match config.mode with
     | Interactive -> let dp = Libnames.dirpath_of_string config.top_name in 
@@ -58,7 +61,7 @@ let start config =
   let ndoc = Stm.{ doc_type;
                    injections = require_libs;
                    stm_options = Stm.AsyncOpts.default_opts } in
-  (* @todo handle `config.debug.stm` and `config.coq_options` as well *)
+  (* @todo handle `config.coq_options` as well *)
   Stm.new_doc ndoc
 
 
@@ -83,16 +86,14 @@ module Interpreter = struct
   let version =
     Coq_config.version, Wacoq_version.date, Coq_config.caml_version, Coq_config.vo_version
 
-  let init = init
-
   let set_load_path () =
     List.iter Loadpath.add_vo_path !load_path
 
-  let new_doc config =
-    let core = Option.get !core_config in
-    load_path := default_load_path core.coqlib config.lib_path;
-    set_load_path ();
+  let init config =
+    load_path := default_load_path config.coqlib config.lib_path;
+    init config set_load_path
 
+  let new_doc config =
     let doc, initial = start config in
     state := Some (doc, [initial]);
     initial
