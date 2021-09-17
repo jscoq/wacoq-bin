@@ -1,25 +1,12 @@
-diff --git a/kernel/byterun/coq_interp.c b/kernel/byterun/coq_interp.c
-index 6255250..029daff 100644
---- a/kernel/byterun/coq_interp.c
-+++ b/kernel/byterun/coq_interp.c
-@@ -1945,3 +1945,8 @@ value coq_interprete_byte(value* argv, int argn){
- value coq_eval_tcode (value tcode, value t, value g, value e) {
-   return coq_interprete_ml(tcode, Val_unit, t, g, e, 0);
- }
-+
-+// jsCoq Stub; actual implementation is in coq-js/js_stub/interrupt.js
-+value interrupt_pending() { return Val_false; }
-+/** @oops not sure this should be here */
-+value wacoq_emit(value str) { printf("%s\n", (const char *)str); fflush(stdout); return Val_unit; }
 diff --git a/lib/control.ml b/lib/control.ml
-index 95ea393..8e70009 100644
+index f3ce295..8dd815d 100644
 --- a/lib/control.ml
 +++ b/lib/control.ml
-@@ -16,7 +16,19 @@ let steps = ref 0
+@@ -18,7 +18,19 @@ let enable_thread_delay = ref false
  
- let enable_thread_delay = ref false
+ exception Timeout
  
-+(* implemented in coq-js/js_stub/interrupt.js *)
++(* implemented in core.ts *)
 +external interrupt_pending : unit -> bool = "interrupt_pending"
 +
 +let timeout_deadline : (float * (unit -> unit)) option ref = ref None
@@ -35,7 +22,7 @@ index 95ea393..8e70009 100644
    if !interrupt then begin interrupt := false; raise Sys.Break end;
    if !enable_thread_delay then begin
      incr steps;
-@@ -81,11 +93,30 @@ let windows_timeout n f x e =
+@@ -98,11 +110,30 @@ let windows_timeout n f x =
      let () = killed := true in
      Exninfo.iraise e
  
@@ -43,18 +30,18 @@ index 95ea393..8e70009 100644
 +  try let y = f () in protect (); y
 +  with e -> protect (); raise e
 +
-+let jscoq_timeout n f x e =
++let jscoq_timeout n f x =
 +  let expired = ref false in
-+  timeout_deadline := Some (Unix.gettimeofday () +. float_of_int n,
++  timeout_deadline := Some (Unix.gettimeofday () +. n,
 +                            fun () -> expired := true; interrupt := true);
 +  let protect () = jscoq_event_yield (); timeout_deadline := None;
 +                   interrupt := false in
-+  let res = try unwind ~protect (fun () -> f x)
-+            with Sys.Break -> raise @@ if !expired then e else Sys.Break in
-+  if !expired then raise e;
-+  res
++  let res = try Some(unwind ~protect (fun () -> f x))
++            with Sys.Break -> if !expired then None else raise Sys.Break in
++  if !expired then None
++  else res
 +
- type timeout = { timeout : 'a 'b. int -> ('a -> 'b) -> 'a -> exn -> 'b }
+ type timeout = { timeout : 'a 'b. float -> ('a -> 'b) -> 'a -> 'b option }
  
 +(*
  let timeout_fun = match Sys.os_type with

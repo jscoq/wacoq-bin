@@ -64,8 +64,7 @@ COQ_SRC = vendor/coq
 COQ_BRANCH = V8.14.0
 COQ_REPOS=https://github.com/coq/coq.git
 
-# @todo timeout
-COQ_PATCHES = extern $(COQ_PATCHES|$(WORD_SIZE))
+COQ_PATCHES = timeout extern $(COQ_PATCHES|$(WORD_SIZE))
 
 COQ_PATCHES|64 = coerce-32bit
 
