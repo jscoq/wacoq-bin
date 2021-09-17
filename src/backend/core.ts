@@ -136,7 +136,9 @@ class IcoqPod extends EventEmitter {
      */
     _preloadStub() {
         this.core.proc.dyld.preload(
-            'dllcoqrun_stubs.so', `${this.binDir}/coq/dllcoqrun_stubs.wasm`,
+            'dllcoqrun_stubs.so', `${this.binDir}/coq/dllcoqrun_stubs.wasm`);
+        this.core.proc.dyld.preload(
+            'dlllib_stubs.so', `${this.binDir}/coq/dlllib_stubs.wasm`,
             {
                 js: {
                     wacoq_emit: (s:number) => this._answer(s),

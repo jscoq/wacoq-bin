@@ -17,6 +17,7 @@
   src/backend/icoq.bc
   src/backend/icoq.exe
   src/backend/dllcoqrun_stubs.wasm
+  src/backend/dlllib_stubs.wasm
   cli.js))
 
 (rule

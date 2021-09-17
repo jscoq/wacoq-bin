@@ -72,7 +72,3 @@ CAMLprim value coq_set_bytecode_field(value v, value i, value code)    STUB
 CAMLprim value coq_offset_tcode(value code, value offset)              STUB
 CAMLprim value coq_int_tcode(value pc, value offset)                   STUB
 CAMLprim value coq_tcode_array(value tcodes)                           STUB
-
-/* wacoq hooks - implemented in `core.ts` */
-extern void wacoq_emit(const char *msg);
-extern value interrupt_pending(value tt);

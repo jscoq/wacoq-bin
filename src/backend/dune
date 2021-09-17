@@ -22,3 +22,11 @@
   (bash "/opt/wasi-sdk/bin/clang -target wasm32-unknown-emscripten -D__wasi__ -fPIC \
 	  byterun_stubs.c -o %{target} -nostdlib -Wl,--shared -Wl,--export-all \
       -I%{ocaml-config:standard_library}")))
+
+(rule
+ (target dlllib_stubs.wasm)
+ (deps lib_stubs.c)
+ (action
+  (bash "/opt/wasi-sdk/bin/clang -target wasm32-unknown-emscripten -D__wasi__ -fPIC \
+	  lib_stubs.c -o %{target} -nostdlib -Wl,--shared -Wl,--export-all \
+      -I%{ocaml-config:standard_library}")))
