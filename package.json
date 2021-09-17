@@ -33,7 +33,7 @@
     "mkdirp": "^1.0.4",
     "neatjson": "^0.8.3",
     "ocaml-wasm": "^4.12.0-0",
-    "wasi-kernel": "0.1.5"
+    "wasi-kernel": "^0.1.5"
   },
   "devDependencies": {
     "@types/child-process-promise": "^2.2.1",
