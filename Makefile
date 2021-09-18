@@ -27,6 +27,7 @@ deps: coq coq-serapi
 wacoq: | _build _wrapup  # need to sequentialize for ${wildcard}
 
 _build:
+	[ -d node_modules ] || npm i
 	$(DUNE) build @coq @wacoq coq-pkgs
 _wrapup:
 	mkdir -p dist && cp _build/$(BUILD_CONTEXT)/cli.js dist/cli.js
