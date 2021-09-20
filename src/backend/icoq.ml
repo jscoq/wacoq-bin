@@ -66,7 +66,8 @@ let start config vo_load_path ml_load_path =
 let coq_exn_info exn =
   let (e, info) = Exninfo.capture exn in
   let pp_exn    = CErrors.iprint (e, info) in
-  CoqExn (Loc.get_loc info, Stateid.get info, pp_exn)
+  let msg = Format.asprintf "@[%a@]" Pp.pp_with pp_exn in
+  CoqExn { loc = Loc.get_loc info; sid = Stateid.get info; msg; pp = pp_exn }
 
 
 (*
@@ -265,8 +266,8 @@ let capture_exn ?sid ?(rid=0) ?(status=fun c -> []) ?(level=Feedback.Error) op =
   let fin (c: Feedback.feedback_content) = List.map feed (status c) in
   try op () @ fin Complete
   with exn ->
-    let CoqExn(loc,_,msg) = coq_exn_info exn [@@warning "-8"] in
-    [feed (Message(level, loc, msg))] @ fin Incomplete
+    let CoqExn { loc; pp; _ } = coq_exn_info exn [@@warning "-8"] in
+    [feed (Message(level, loc, pp))] @ fin Incomplete
 
 
 let wacoq_execute = function
@@ -302,8 +303,7 @@ let handleRequest json_str =
       | Result.Error e -> [JsonExn e]
       | Result.Ok cmd -> wacoq_execute cmd
   with exn ->
-    let (e, info) = Exninfo.capture exn                in
-    [CoqExn (Loc.get_loc info, Stateid.get info, CErrors.iprint (e, info))]
+    [coq_exn_info exn]
   in
   Interpreter.cleanup () ;
   serialize resp
