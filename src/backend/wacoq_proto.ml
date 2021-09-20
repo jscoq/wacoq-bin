@@ -120,7 +120,11 @@ type wacoq_answer =
   | Loaded    of string * Stateid.t
   | Compiled  of string
 
-  | CoqExn    of Loc.t option * (Stateid.t * Stateid.t) option * Pp.t
+  | CoqExn    of { loc : Loc.t option
+                 ; sid : (Stateid.t * Stateid.t) option
+                 ; msg : string
+                 ; pp : Pp.t
+                 }
   | JsonExn   of string
   [@@deriving to_yojson]
 
