@@ -43,6 +43,7 @@ let init config preload =
   CWarnings.set_flags default_warning_flags;
 
   preload ();  (* needed to set up load path before `init_core` *)
+  (* @todo handle `config.coq_options` as well *)
 
   Stm.init_core ();
   core_config := Some config
