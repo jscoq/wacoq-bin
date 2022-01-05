@@ -72,8 +72,8 @@ function findNM() {
 
 async function findCoq() {
     var cfg = await chld.exec("coqc -config"),
-        mo = cfg.stdout.match(/^COQLIB=(.*)/m);
-    if (!mo) throw {err: "Coq config COQLIB=_ not found"};
+        mo = cfg.stdout.match(/^COQCORELIB=(.*)/m);
+    if (!mo) throw {err: "Coq config COQCORELIB=_ not found"};
     return mo[1];
 }
 
