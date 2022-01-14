@@ -19,41 +19,40 @@
             "theories": {
                 "prefix": "Coq",
                 "dirpaths": ["Logic", "Program", "Classes", "Compat", "Structures",
-                             "Relations", "Setoids", 
-                             "extraction", "funind", "derive", "ssrsearch", "rtauto"]
+                             "Relations", "Setoids", "extraction", "funind"]
             },
             "plugins": {
                 "prefix": "Coq",
-                "dirpaths": ["extraction", "funind", "derive", "ssrsearch", "rtauto"]
+                "dirpaths": ["extraction", "funind"]
             }
         },
         "coq-collections": {
             "theories": {
                 "prefix": "Coq",
                 "dirpaths": ["Lists", "Vectors", "Sets", "FSets", "MSets",
-                             "Sorting", "Array", "Strings"]
+                             "Sorting"]
             }
         },
         "coq-arith": {
             "theories": {
                 "prefix": "Coq",
                 "dirpaths": ["Arith", "NArith", "PArith", "ZArith", "QArith",
-                             "Numbers", "Wellfounded", "setoid_ring", "omega",
-                             "micromega"]
+                             "Numbers", "Array", "Strings", "Wellfounded",
+                             "setoid_ring", "omega"]
             },
             "plugins": {
                 "prefix": "Coq",
-                "dirpaths": ["ring", "micromega"]
+                "dirpaths": ["ring"]
             }
         },
         "coq-reals": {
             "theories": {
                 "prefix": "Coq",
-                "dirpaths": ["Reals", "Floats", "nsatz"]
+                "dirpaths": ["Reals", "Floats", "micromega", "nsatz"]
             },
             "plugins": {
                 "prefix": "Coq",
-                "dirpaths": ["nsatz"]
+                "dirpaths": ["micromega", "nsatz"]
             }
         },
         "ltac2": {
