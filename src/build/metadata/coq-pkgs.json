@@ -55,6 +55,11 @@
                 "prefix": "Coq",
                 "dirpaths": ["nsatz"]
             }
+        },
+        "ltac2": {
+            "user-contrib/Ltac2": {
+                "prefix": "Ltac2"
+            }
         }
     }
 }
