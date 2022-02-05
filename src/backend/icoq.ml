@@ -36,7 +36,7 @@ let init config preload =
 
   Lib.init ();
 
-  Global.set_engagement Declarations.PredicativeSet;
+  Global.set_impredicative_set false;
   Global.set_VM false;
   Global.set_native_compiler false;
   Flags.set_native_compiler false;  (* need both? *)
@@ -186,7 +186,7 @@ module Interpreter = struct
   let mode_at ~sid =
     let doc, sid = at sid in
     match Stm.state_of_id ~doc sid with
-    | `Valid (Some { lemmas = Some _; _ }) -> Proof 
+    | Valid (Some { lemmas = Some _; _ }) -> Proof 
     | _ -> General
 
   let inspect sid q =
@@ -223,7 +223,7 @@ module Compiler = struct
     (*  (normally, save_library_to closes the lib)             *)
     (if snapshot then freeze_unfreeze else (fun op -> op ())) (fun () ->
       Library.save_library_to Library.ProofsTodoNone 
-        ~output_native_objects:false dirp filename (Global.opaque_tables ())
+        ~output_native_objects:false dirp filename
     )
 
   and freeze_unfreeze op =
@@ -327,5 +327,5 @@ let () =
     Callback.register "wacoq_post" handleRequest ;
     if (Array.length Sys.argv > 1) && Sys.argv.(1) = "-stdin" then
       handleRequestsFromStdin ()
-  with CErrors.UserError(Some x, y) ->
-    print_endline @@ "error! " ^ x ^ ": " ^ Pp.string_of_ppcmds y
+  with CErrors.UserError(pp) ->
+    print_endline @@ "error! " ^ Pp.string_of_ppcmds pp

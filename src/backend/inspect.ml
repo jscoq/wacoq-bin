@@ -67,8 +67,8 @@ let qualified_name_of_full_path fp =
   {prefix = qualified_object_prefix_of_dp dp; basename = id}
 
 (* Get current proof context *)
-let context_of_st m = match m with
-  | `Valid (Some { Vernacstate.lemmas = Some lemma ; _ } ) ->
+let context_of_st (m : Stm.state) = match m with
+  | Valid (Some { Vernacstate.lemmas = Some lemma ; _ } ) ->
     Vernacstate.LemmaStack.with_top lemma
       ~f:(fun pstate -> Declare.Proof.get_current_context pstate)
   | _ ->
