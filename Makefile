@@ -61,7 +61,7 @@ dist-npm:
 
 COQ_SRC = vendor/coq
 
-COQ_BRANCH = V8.15.0
+COQ_BRANCH = V8.15.1
 COQ_REPOS=https://github.com/coq/coq.git
 
 COQ_PATCHES = timeout extern $(COQ_PATCHES|$(WORD_SIZE))
@@ -75,6 +75,7 @@ $(COQ_SRC):
 	cd $@ && git apply ${foreach p,$(COQ_PATCHES),$(current_dir)/etc/patches/$p.patch}
 
 coq: $(COQ_SRC)
+	rm -rf _build/$(BUILD_CONTEXT)/$(COQ_SRC)  # safeguard
 	cd $(COQ_SRC) && \
 	    dune exec --context=$(BUILD_CONTEXT) $(coq_configure) \
 	        -- -prefix $(current_dir) -native-compiler no -bytecode-compiler no -coqide no
