@@ -13,11 +13,11 @@ depends: [
   "ocaml"               { >= "4.08.1"           }
   "dune"                { >= "2.4.0"            }
   "yojson"              { >= "1.7.0"            }
-  "ppx_deriving_yojson" { >= "3.5.1"            }
-  "ppx_import"          { build & >= "1.6.2"    }
+  "ppx_deriving_yojson" { >= "3.5.3"            }
+  "ppx_import"          { >= "1.8.0"            }
   # We should just rely on OPAM's serlib but this is still early
-  "sexplib"             { >= "v0.12.0"           }
-  "ppx_sexp_conv"       { build   & >= "v0.12.0" }
+  "sexplib"             { >= "v0.14.0"          }
+  "ppx_sexp_conv"       { >= "v0.14.1" & < "v0.15" }
   # We build a local, patched Coq; these are its deps
   "ocamlfind"
   "num"
