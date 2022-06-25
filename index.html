@@ -19,6 +19,7 @@
         </div>
     </body>
     <script>
-        if (window.main) window.main();
+        let sp = new URLSearchParams(location.search);
+        if (window.main) window.main({subproc: sp.has('subproc')});
     </script>
 </html>

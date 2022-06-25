@@ -7,7 +7,6 @@
  */
 import assert from 'assert';
 import fs from 'fs';
-import mkdirp from 'mkdirp';
 import { ChildProcess, SpawnOptionsWithoutStdio, spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import byline from 'byline';
@@ -30,6 +29,9 @@ class SubprocessWorker extends EventEmitter {
             catch (e) { console.error("(from subprocess)", e, ln.toString('utf-8')); }
         });
         setTimeout(() => this.emit('message', {data: ['Boot']}), 0);
+        // forward child process events
+        this.cp.on('error', e => this.emit('error', e));
+        this.cp.on('exit', (code, signal) => this.emit('exit', code, signal));
     }
 
     end() {
@@ -40,11 +42,11 @@ class SubprocessWorker extends EventEmitter {
         this.cp.kill("SIGINT");
     }
 
-    addEventListener(event: "message", handler: (ev: {data: any[]}) => void) {
+    addEventListener(event: string, handler: (...a: any[]) => void) {
         this.on(event, handler);
     }
 
-    removeEventListener(event: "message", handler: (ev: {data: any[]}) => void) {
+    removeEventListener(event: string, handler: (...a: any[]) => void) {
         this.off(event, handler);
     }
 
@@ -57,9 +59,18 @@ class SubprocessWorker extends EventEmitter {
     }
 
     putFile(filename: string, content: any) {
-        mkdirp.sync(filename.replace(/[/][^/]+$/, ''))
+        fs.mkdirSync(filename.replace(/[/][^/]+$/, ''), {recursive: true});
         fs.writeFileSync(filename, content);
     }
+}
+
+interface SubprocessWorker {
+    addEventListener(event: "message", handler: (ev: {data: any[]}) => void): void;
+    addEventListener(event: "error", handler: (e: Error) => void): void;
+    addEventListener(event: "exit", handler: (code: number, signal: NodeJS.Signals) => void): void;
+    removeEventListener(event: "message", handler: (ev: {data: any[]}) => void): void;
+    removeEventListener(event: "error", handler: (e: Error) => void): void;
+    removeEventListener(event: "exit", handler: (code: number, signal: NodeJS.Signals) => void): void;    
 }
 
 
@@ -96,8 +107,9 @@ class IcoqSubprocess extends SubprocessWorker {
     }
 
     static findBinDir() {
+        var cwd = typeof __dirname !== 'undefined' && __dirname !== '/' ? __dirname : '.';
         var bin = global.require('find-up')
-                  .sync('bin/coq', {cwd: __dirname, type: 'directory'});
+                  .sync('bin/coq', {cwd, type: 'directory'});
         assert(bin, 'bin/coq not found');
         return bin;
     }

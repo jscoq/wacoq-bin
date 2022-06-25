@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
-import mkdirp from 'mkdirp';
 import unzip from 'fflate-unzip';
 import * as find from 'find';
 
@@ -37,7 +36,7 @@ class PackageDirectory extends EventEmitter {
 
     appropriatePlugins(binDir: string) {
         var fromDir = path.join(binDir, 'coqlib', 'plugins');
-        mkdirp.sync(this.dir);
+        fs.mkdirSync(this.dir, {recursive: true});
         return this._plugins = new Promise((resolve, reject) =>
             find.eachfile(/\.cmxs$/, fromDir, (filename) => {
                 try {

@@ -76,7 +76,10 @@ module.exports = (env, argv) => [
   externalsPresets: {node: true},
   externals: [nodeExternals()],
   ...typescript,
-  ...out(env, 'subproc.js')
+  output: {
+    ...out(env, 'subproc.js').output,
+    library: {type: 'commonjs'}
+  }
 },
 {
   name: 'worker',
@@ -103,14 +106,16 @@ module.exports = (env, argv) => [
   ...lowstats,
   ...typescript,
   externals: {  /* for subproc, only available in NWjs */
+    "fs": "commonjs fs",
     "child_process": "commonjs2 child_process",
+    "byline": "commonjs2 byline",
     "timers": "commonjs2 timers"
   },
+  node: false,
   resolve: {
     ...typescript.resolve,
     fallback: shims.modules
   },
-  plugins: shims.plugins,
   ...out(env, 'startup.js')
 }
 ];

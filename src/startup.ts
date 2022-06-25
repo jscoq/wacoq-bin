@@ -15,11 +15,12 @@ async function main(opts: any = {}) {
         console.log(`%c${caption} (+${elapsed()}ms)`, 'color: #99f');
     }
 
-    var worker: Worker | IcoqSubprocess, coqlib: string;
+    var worker: Worker | IcoqSubprocess,
+        initOpts: {coqlib?: string, lib_path?: string[]} = {};
     if (opts.subproc) {
         const { IcoqSubprocess } = await import('./backend/subproc');
         worker = new IcoqSubprocess();
-        coqlib = worker.binDir + '/coqlib';
+        initOpts = {coqlib: worker.binDir + '/coqlib', lib_path: []};
     }
     else {
         worker = new Worker(0 || './dist/worker.js');  // bypass Parcel (fails to build worker at the moment)
@@ -36,6 +37,8 @@ async function main(opts: any = {}) {
                  'Goal 5 < 90.', 'lia.'
     ];
 
+    worker.addEventListener('error', e => console.error('(in worker)', e));
+
     worker.addEventListener('message', (ev) => {
         console.log(ev.data);
 
@@ -45,8 +48,10 @@ async function main(opts: any = {}) {
             consl.showProgress('Starting', {done: false});  break;
         case 'Boot':
             milestone('Boot');
-            sendCommand(['Init', {coqlib}]);
-            worker.postMessage(['LoadPkg', '+init']);  break;
+            sendCommand(['Init', initOpts]);
+            if (!opts.subproc) worker.postMessage(['LoadPkg', '+init']);  
+            else sendCommand(['NewDoc', {}]);
+            break;
         case 'LoadedPkg':
             if (ev.data[1].includes('+init'))
                 sendCommand(['NewDoc', {}]);
