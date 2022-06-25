@@ -5,6 +5,7 @@ type search_query =
   | Keyword of string
   | Locals
 
+(* @todo can replace with `Nametab.object_prefix` *)
 type qualified_object_prefix = {
   dp: Names.DirPath.t;
   mod_ids: Names.Id.t list
@@ -41,10 +42,6 @@ let is_within qn prefix =
   let {prefix = {dp}} = qn in
   Libnames.is_dirpath_prefix_of prefix dp
 
-let dp_of_mp mp = (* Like `Lib.dp_of_mp`, but includes the module path *)
-  let dp, ids = Lib.split_modpath mp in
-  Names.DirPath.make @@ Names.DirPath.repr dp @ ids
-
 let qualified_object_prefix_of_mp mp =
   let dp, mod_ids = Lib.split_modpath mp in {dp; mod_ids}
 
@@ -53,12 +50,6 @@ let qualified_object_prefix_of_dp dp = {dp; mod_ids = []}
 let qualified_name_of_kn kn =
   let mp, l = Names.KerName.repr kn in
   {prefix = qualified_object_prefix_of_mp mp; basename = Names.Label.to_id l}
-
-let full_path_of_kn kn =
-  let mp, l = Names.KerName.repr kn in
-  Libnames.make_path (dp_of_mp mp) (Names.Label.to_id l)
-
-let full_path_of_constant c = full_path_of_kn (Names.Constant.user c)
 
 let qualified_name_of_constant c = qualified_name_of_kn (Names.Constant.user c)
 
@@ -85,38 +76,51 @@ let inspect_globals ~env () =
   Seq.map qualified_name_of_constant global_consts
 
 
-let libobj_is_leaf obj =
-  match obj with
-  | Lib.Leaf _ -> true | _ -> false [@@warning "-4"]
-
-let full_path_sibling path id =
-  Libnames.make_path (Libnames.dirpath path) id  
-
-let lookup_inductive env path mi =
+let lookup_inductive env mi =
   let open Declarations in
   try
     let defn_body = Environ.lookup_mind mi env in
     Array.to_seq defn_body.mind_packets
-      |> Seq.map (fun p -> full_path_sibling path (p.mind_typename))
-    (* TODO include constructors *)
+      |> Seq.flat_map (fun p -> Seq.cons p.mind_typename 
+          (Array.to_seq p.mind_consnames))
   with Not_found -> Seq.empty
 
-let find_definitions env obj_path =
-  let open Names.GlobRef in
-  try
-    match Nametab.global_of_path obj_path with
-    | ConstRef _ -> Seq.return obj_path
-    | IndRef (mi,_) -> lookup_inductive env obj_path mi
-    | _ -> Seq.empty
-  with Not_found -> Seq.empty
+let lookup_inductive_mp env mp id =
+  lookup_inductive env (Names.MutInd.make2 mp (Names.Label.of_id id))
+
+(* from `prettyp.ml` *)
+module DynHandle = Libobject.Dyn.Map(struct type 'a t = 'a -> Names.Id.t Seq.t end)
+let handle (Libobject.Dyn.Dyn (tag, o)) h dft = 
+  match DynHandle.find tag h with
+  | f -> f o
+  | exception Not_found -> dft
+
+let names_of_libobj env mp lobj =
+  let case_const = DynHandle.add Declare.Internal.Constant.tag in
+  let case_ind = DynHandle.add DeclareInd.Internal.objInductive in
+  match lobj with
+  | Libobject.AtomicObject o ->
+    handle o (
+      case_const (fun (id,_) -> [id] |> List.to_seq)             @@
+      case_ind   (fun (id,_) -> lookup_inductive_mp env mp id)   @@
+      DynHandle.empty
+    ) Seq.empty
+  | _ -> Seq.empty
+
+
+let find_definitions env (node, objs) =
+  let open Nametab in
+  let dp = (Lib.node_prefix node).obj_dir in
+  let mp = (Lib.node_prefix node).Nametab.obj_mp in
+  List.to_seq objs 
+    |> Seq.flat_map (fun o -> names_of_libobj env mp o)
+    |> Seq.map (fun nm -> Libnames.make_path dp nm)
 
 (* Get definitions in current module *)
 let inspect_library ~env () =
   let ls = Lib.contents () in
-  Seq.flat_map (fun ((obj_path, _), obj) ->
-    if libobj_is_leaf obj then find_definitions env obj_path
-    else Seq.empty)
-    (List.to_seq ls) |> Seq.map qualified_name_of_full_path
+  Seq.flat_map (find_definitions env) (List.to_seq ls)
+    |> Seq.map qualified_name_of_full_path
 
 (* Get local names in proof context *)
 let inspect_locals ~env ?(dir_path=Names.DirPath.empty) () =

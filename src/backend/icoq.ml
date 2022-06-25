@@ -58,7 +58,7 @@ let start config =
     | Vo ->          Stm.VoDoc config.top_name
   in
   let require_libs = List.map (fun lib -> 
-    Coqargs.RequireInjection(lib, None, Some false)) config.lib_init in
+    Coqargs.RequireInjection(lib, None, Some Lib.Import)) config.lib_init in
   let ndoc = Stm.{ doc_type;
                    injections = require_libs;
                    stm_options = Stm.AsyncOpts.default_opts } in
@@ -251,7 +251,8 @@ let add_or_pend ?from ?newid stm ~resolve =
   match req with
   | Some (prefix, module_refs) ->
     let soq = Libnames.string_of_qualid in
-    [Pending (newid, Option.map soq prefix, List.map soq module_refs)]
+    let msoq = fun (m, _) -> soq m in
+    [Pending (newid, Option.map soq prefix, List.map msoq module_refs)]
   | _ ->
     [Added (Interpreter.add_ast ?from ?newid ast, ast.CAst.loc)]
 

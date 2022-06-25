@@ -26,7 +26,7 @@ class SubprocessWorker extends EventEmitter {
                 for (let msg of JSON.parse(ln))
                     this.emit('message', {data: msg});
             }
-            catch (e) { console.error("(from subprocess)", e, ln.toString('utf-8')); }
+            catch (e) { console.error("(from subprocess)", ln.toString('utf-8'), e); }
         });
         setTimeout(() => this.emit('message', {data: ['Boot']}), 0);
         // forward child process events
