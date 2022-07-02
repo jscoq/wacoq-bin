@@ -11,7 +11,7 @@ license:      "AGPL-3.0-or-later"
 
 depends: [
   "ocaml"               { >= "4.08.1"           }
-  "dune"                { >= "2.4.0"            }
+  "dune"                { >= "2.4.0" & < "3.2"  }
   "yojson"              { >= "1.7.0"            }
   "ppx_deriving_yojson" { >= "3.5.3"            }
   "ppx_import"          { >= "1.8.0"            }
