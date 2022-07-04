@@ -64,7 +64,7 @@ COQ_SRC = vendor/coq
 COQ_BRANCH = V8.16+rc1
 COQ_REPOS=https://github.com/coq/coq.git
 
-COQ_PATCHES = timeout extern $(COQ_PATCHES|$(WORD_SIZE))
+COQ_PATCHES = timeout extern dune-3 $(COQ_PATCHES|$(WORD_SIZE))
 
 COQ_PATCHES|64 = coerce-32bit
 
