@@ -1,6 +1,6 @@
 {
   "name": "wacoq-bin",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "description": "WASM Binaries of the Coq Proof Assistant (for jsCoq)",
   "main": "index.html",
   "author": "corwin-of-amber",
