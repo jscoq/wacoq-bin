@@ -14,10 +14,9 @@ class IcoqPod extends EventEmitter {
     binDir: string
     io: IO
 
-    constructor(binDir?: string) {
+    constructor(binDir?: string, fetchMode: FetchMode = DEFAULT_FETCH_MODE) {
         super();
-        binDir = binDir || (typeof fetch === 'undefined'
-                            || process.env.NODE_NOW ? './bin' : '../bin');
+        binDir = binDir || (fetchMode === 'fs' ? './bin' : '../bin');
         this.binDir = binDir;
 
         this.core = new OCamlExecutable({stdin: false, tty: false, binDir});
@@ -25,7 +24,7 @@ class IcoqPod extends EventEmitter {
         var utf8 = new TextDecoder();
         this.core.on('stream:out', ev => console.log(utf8.decode(ev.data)));
 
-        this.io = new IO;
+        this.io = new IO(fetchMode);
         this.intr = new WorkerInterrupts();
     }
 
@@ -154,6 +153,8 @@ class IO {
 
     pending = new Set<ReadableStreamDefaultReader<Uint8Array>>()
 
+    constructor(public fetchMode: FetchMode) { }
+
     async unzip(uri: string, put: (filename: string, content: Uint8Array) => void, progress?: (p: any) => void) {
         var zip = unzipSync(await this._fetch(uri, progress));
 
@@ -163,7 +164,7 @@ class IO {
     }
 
     async _fetch(uri: string, progress?: (p: any) => void) : Promise<Uint8Array> {
-        if (progress && typeof fetch !== 'undefined') {
+        if (progress && this.fetchMode === 'browser') {
             return this._toU8A(this._fetchWithProgress(uri, progress));
         }
         else return this._fetchSimple(uri);
@@ -174,10 +175,10 @@ class IO {
     }
 
     async _fetchSimple(uri: string) {
-        if (typeof fetch !== 'undefined') {
-            return new Uint8Array(await (await fetch(uri)).arrayBuffer())
-        }
-        else {
+        switch (this.fetchMode) {
+        case 'browser':
+            return new Uint8Array(await (await fetch(uri)).arrayBuffer());
+        case 'fs':
             const fs = require('fs');
             return (0||fs.readFileSync)(uri);
         }
@@ -205,8 +206,10 @@ class IO {
 }
 
 
+type FetchMode = 'browser' | 'fs';
 type DownloadProgress = { total: number, downloaded: number };
 
+const DEFAULT_FETCH_MODE: FetchMode = typeof window !== 'undefined' ? 'browser' : 'fs';
 
 
 export  { IcoqPod, DownloadProgress }

@@ -50,7 +50,6 @@ let init config preload =
 
 
 let start config =
-  Format.eprintf "top_name %s\n%!" config.top_name;
   (* Create an initial state of the STM *)
   let doc_type = match config.mode with
     | Interactive -> let dp = Libnames.dirpath_of_string config.top_name in 
