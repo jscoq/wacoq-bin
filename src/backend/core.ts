@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import { unzipSync } from 'fflate';
+import { isBrowser, isWebWorker } from 'browser-or-node';
 
 import { OCamlExecutable, OCamlCAPI } from './ocaml_exec';
 import { WorkerInterrupts } from './interrupt';
@@ -209,7 +210,7 @@ class IO {
 type FetchMode = 'browser' | 'fs';
 type DownloadProgress = { total: number, downloaded: number };
 
-const DEFAULT_FETCH_MODE: FetchMode = typeof window !== 'undefined' ? 'browser' : 'fs';
+const DEFAULT_FETCH_MODE: FetchMode = (isBrowser || isWebWorker) ? 'browser' : 'fs';
 
 
 export  { IcoqPod, DownloadProgress }
